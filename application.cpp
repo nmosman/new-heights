@@ -114,6 +114,13 @@ void updateHaptics(void);
 // this function closes the application
 void close(void);
 
+// global vector for updating tool position
+cVector3d updateToolPos;
+cVector3d lookAtPos(0.0, 0.0, 0.0);
+cVector3d cameraPos(0.1, 0.0, 0.07);
+
+// global workspace centre position vector
+cVector3d workspaceCentre(0.0, 0.0, 0.0);
 
 //==============================================================================
 /*
@@ -525,7 +532,23 @@ void updateHaptics(void)
 		// read position 
 		cVector3d position;
 		hapticDevice->getPosition(position);
+		
+	    	cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
+		updateToolPos = workspaceVector;
 
+		if (workspaceVector.length() > 0.035)
+		{
+			cVector3d offset = 0.0009 * workspaceVector;
+			//workspaceCentre += offset;
+			tool->setLocalPos(tool->getLocalPos() + offset);
+			cameraPos += offset;
+			lookAtPos += offset;
+			camera->set(cameraPos,    // camera position (eye)
+				lookAtPos,    // look at position (target)
+				cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+		}
+
+	    
 		// read orientation 
 		cMatrix3d rotation;
 		hapticDevice->getRotation(rotation);
