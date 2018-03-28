@@ -32,6 +32,7 @@ bool fullscreen = false;
 // mirrored display
 bool mirroredDisplay = false;
 
+const int MAX_DEVICES = 2;
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -50,7 +51,7 @@ cDirectionalLight *light;
 cHapticDeviceHandler* handler;
 
 // a pointer to the current haptic device
-cGenericHapticDevicePtr hapticDevice;
+cGenericHapticDevicePtr hapticDevice[MAX_DEVICES];
 
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
@@ -90,7 +91,9 @@ int swapInterval = 1;
 cMultiMesh * monkey;			//debug monkey for testing friction
 
 // tool cursor for chai3d collision 
-cToolCursor* tool;				//the new cursor
+cToolCursor *tool[MAX_DEVICES];				//the new cursor
+
+int numHapticDevices;
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
@@ -292,38 +295,37 @@ int main(int argc, char* argv[])
     // create a haptic device handler
     handler = new cHapticDeviceHandler();
 
-    // get a handle to the first haptic device
-    handler->getDevice(hapticDevice, 0);
+	// get number of haptic devices
+	numHapticDevices = handler->getNumDevices();
 
-    // open a connection to haptic device
-    hapticDevice->open();
+	for (int i = 0; i < numHapticDevices; i++)
+	{
+		// get a handle to the first haptic device
+		handler->getDevice(hapticDevice[i], i);
 
-    // calibrate device (if necessary)
-    hapticDevice->calibrate();
+		// open a connection to haptic device
+		hapticDevice[i]->open();
 
-    // retrieve information about the current haptic device
-    cHapticDeviceInfo info = hapticDevice->getSpecifications();
+		// calibrate device (if necessary)
+		hapticDevice[i]->calibrate();
 
-    // display a reference frame if haptic device supports orientations
-    //if (info.m_sensedRotation == true)
-    //{
-    //    // display reference frame
-    //    cursor->setShowFrame(true);
+		// retrieve information about the current haptic device
+		cHapticDeviceInfo info = hapticDevice[i]->getSpecifications();
 
-    //    // set the size of the reference frame
-    //    cursor->setFrameSize(0.05);
-    //}
+		//****************************************************************************************************************CHANGES FOR CURSOR
+		tool[i] = new cToolCursor(world);
+		tool[i]->setHapticDevice(hapticDevice[i]);
+		tool[i]->setRadius(0.001);
+		tool[i]->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
+		tool[i]->start();
+		world->addChild(tool[i]);
 
-	//****************************************************************************************************************CHANGES FOR CURSOR
-	tool = new cToolCursor(world);
-	tool->setHapticDevice(hapticDevice);
-	tool->setRadius(0.001);
-	tool->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
-	tool->start();
-	world->addChild(tool);
+		// if the device has a gripper, enable the gripper to simulate a user switch
+		hapticDevice[i]->setEnableGripperUserSwitch(true);
+	}
 
-    // if the device has a gripper, enable the gripper to simulate a user switch
-    hapticDevice->setEnableGripperUserSwitch(true);
+
+
 
 
     //--------------------------------------------------------------------------
@@ -466,8 +468,11 @@ void close(void)
     // wait for graphics and haptics loops to terminate
     while (!simulationFinished) { cSleepMs(100); }
 
-    // close haptic device
-    hapticDevice->close();
+	for (int i = 0; i < numHapticDevices; i++)
+	{
+		// close haptic device
+		hapticDevice[i]->close();
+	}
 
     // delete resources
     delete hapticsThread;
@@ -519,81 +524,84 @@ void updateHaptics(void)
     simulationFinished = false;
 
     // main haptic simulation loop
-    while(simulationRunning)
-    {
-		//****************************************************************************MAGIC
-		//need to do this when obj with parent child relationship
-		world->computeGlobalPositions();
-		//****************************************************************************MAGIC
-		/////////////////////////////////////////////////////////////////////
-		// READ HAPTIC DEVICE
-		/////////////////////////////////////////////////////////////////////
-
-		// read position 
-		cVector3d position;
-		hapticDevice->getPosition(position);
-		
-	    	cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
-		updateToolPos = workspaceVector;
-
-		if (workspaceVector.length() > 0.035)
+	while (simulationRunning)
+	{
+		for (int i = 0; i < numHapticDevices; i++)
 		{
-			cVector3d offset = 0.0009 * workspaceVector;
-			//workspaceCentre += offset;
-			tool->setLocalPos(tool->getLocalPos() + offset);
-			cameraPos += offset;
-			lookAtPos += offset;
-			camera->set(cameraPos,    // camera position (eye)
-				lookAtPos,    // look at position (target)
-				cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
-		}
+			//****************************************************************************MAGIC
+			//need to do this when obj with parent child relationship
+			world->computeGlobalPositions();
+			//****************************************************************************MAGIC
+			/////////////////////////////////////////////////////////////////////
+			// READ HAPTIC DEVICE
+			/////////////////////////////////////////////////////////////////////
 
-	    
-		// read orientation 
-		cMatrix3d rotation;
-		hapticDevice->getRotation(rotation);
+			// read position 
+			cVector3d position;
+			hapticDevice[i]->getPosition(position);
 
-		// read user-switch status (button 0)
-		bool button = false;
-		hapticDevice->getUserSwitch(0, button);
+			cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
+			updateToolPos = workspaceVector;
 
-
-		/////////////////////////////////////////////////////////////////////
-		// UPDATE 3D CURSOR MODEL
-		/////////////////////////////////////////////////////////////////////
-		//****************************************************************************MAGIC
-		//// update position and orienation of cursor
-		//cursor->setLocalPos(position);
-		//cursor->setLocalRot(rotation);
-		tool->updateFromDevice();
-		//****************************************************************************MAGIC
+			if (workspaceVector.length() > 0.035)
+			{
+				cVector3d offset = 0.0009 * workspaceVector;
+				//workspaceCentre += offset;
+				tool[i]->setLocalPos(tool[i]->getLocalPos() + offset);
+				cameraPos += offset;
+				lookAtPos += offset;
+				camera->set(cameraPos,    // camera position (eye)
+					lookAtPos,    // look at position (target)
+					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+			}
 
 
-		/////////////////////////////////////////////////////////////////////
-		// COMPUTE FORCES
-		/////////////////////////////////////////////////////////////////////
-		//****************************************************************************MAGIC
-		//cVector3d force(0, 0, 0);
-		//cVector3d torque(0, 0, 0);
-		//double gripperForce = 0.0;
-		tool->computeInteractionForces();
-		//****************************************************************************MAGIC
+			// read orientation 
+			cMatrix3d rotation;
+			hapticDevice[i]->getRotation(rotation);
 
-        /////////////////////////////////////////////////////////////////////
-        // APPLY FORCES
-        /////////////////////////////////////////////////////////////////////
+			// read user-switch status (button 0)
+			bool button = false;
+			hapticDevice[i]->getUserSwitch(0, button);
 
-        // send computed force, torque, and gripper force to haptic device
-        //hapticDevice->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
 
-        // signal frequency counter
-        //freqCounterHaptics.signal(1);
-		//****************************************************************************MAGIC
-		tool->applyToDevice();
-    }	//****************************************************************************MAGIC
-    
+			/////////////////////////////////////////////////////////////////////
+			// UPDATE 3D CURSOR MODEL
+			/////////////////////////////////////////////////////////////////////
+			//****************************************************************************MAGIC
+			//// update position and orienation of cursor
+			//cursor->setLocalPos(position);
+			//cursor->setLocalRot(rotation);
+			tool[i]->updateFromDevice();
+			//****************************************************************************MAGIC
+
+
+			/////////////////////////////////////////////////////////////////////
+			// COMPUTE FORCES
+			/////////////////////////////////////////////////////////////////////
+			//****************************************************************************MAGIC
+			//cVector3d force(0, 0, 0);
+			//cVector3d torque(0, 0, 0);
+			//double gripperForce = 0.0;
+			tool[i]->computeInteractionForces();
+			//****************************************************************************MAGIC
+
+			/////////////////////////////////////////////////////////////////////
+			// APPLY FORCES
+			/////////////////////////////////////////////////////////////////////
+
+			// send computed force, torque, and gripper force to haptic device
+			//hapticDevice->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
+
+			// signal frequency counter
+			//freqCounterHaptics.signal(1);
+			//****************************************************************************MAGIC
+			tool[i]->applyToDevice();
+		}	//****************************************************************************MAGIC
+	}
     // exit haptics thread
     simulationFinished = true;
+
 }
 
 //------------------------------------------------------------------------------
