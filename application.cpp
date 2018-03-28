@@ -95,9 +95,23 @@ cToolCursor *tool[MAX_DEVICES];				//the new cursor
 
 int numHapticDevices;
 
+const double vel_g = 9.81;
+double mass_1 = 1.0;	//kg
+cVector3d debugVector;
+
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
+
+//****************************************************************************************************************FUNCTIONS
+cVector3d calcForceGravity()
+{
+	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
+};
+cVector3d calcNetForces(cVector3d f_tool) 
+{
+	return calcForceGravity() + f_tool;
+};
 
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
@@ -490,7 +504,7 @@ void updateGraphics(void)
 
     // update haptic and graphic rate data
     labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz");
+        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" + debugVector.str());
 
     // update position of label
     labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
@@ -584,6 +598,10 @@ void updateHaptics(void)
 			//cVector3d torque(0, 0, 0);
 			//double gripperForce = 0.0;
 			tool[i]->computeInteractionForces();
+			tool[i]->setDeviceLocalForce(calcNetForces(tool[i]->getDeviceLocalForce()));
+			debugVector = tool[i]->getDeviceLocalForce();
+			//this gets the forces acting on the device
+			//cout << tool[i]->getDeviceLocalForce() << endl;
 			//****************************************************************************MAGIC
 
 			/////////////////////////////////////////////////////////////////////
