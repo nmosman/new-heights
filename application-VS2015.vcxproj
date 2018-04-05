@@ -20,11 +20,21 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="application.cpp" />
+    <ClCompile Include="MyBall.cpp" />
+    <ClCompile Include="MySpring.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Object Include="wall2.obj">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </Object>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MyBall.h" />
+    <ClInclude Include="MySpring.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectName>application-GLFW</ProjectName>

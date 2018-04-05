@@ -6,6 +6,8 @@
 
 //------------------------------------------------------------------------------
 #include "chai3d.h"
+#include "MyBall.h"
+#include "MySpring.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
 //------------------------------------------------------------------------------
@@ -91,7 +93,10 @@ int swapInterval = 1;
 cMultiMesh * monkey;			//debug monkey for testing friction
 
 // tool cursor for chai3d collision 
-cToolCursor *tool[MAX_DEVICES];				//the new cursor
+MyBall* tool[MAX_DEVICES];
+MySpring* springs[MAX_DEVICES];
+MyBall* person;
+//cToolCursor *tool[MAX_DEVICES];				//the new cursor
 
 int numHapticDevices;
 
@@ -104,14 +109,15 @@ cVector3d debugVector;
 //------------------------------------------------------------------------------
 
 //****************************************************************************************************************FUNCTIONS
-cVector3d calcForceGravity()
-{
-	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
-};
-cVector3d calcNetForces(cVector3d f_tool) 
-{
-	return calcForceGravity() + f_tool;
-};
+//cVector3d calcForceGravity()
+//{
+//	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
+//};
+//cVector3d calcNetForces(MyBall* tool) 
+//{
+//
+//	return 
+//};
 
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
@@ -312,6 +318,10 @@ int main(int argc, char* argv[])
 	// get number of haptic devices
 	numHapticDevices = handler->getNumDevices();
 
+	//****************************************************************************************************************CHANGES FOR CURSOR
+	person = new MyBall(world);
+	person->setBallPos(cVector3d(0.1, 0, 0));
+
 	for (int i = 0; i < numHapticDevices; i++)
 	{
 		// get a handle to the first haptic device
@@ -327,13 +337,15 @@ int main(int argc, char* argv[])
 		cHapticDeviceInfo info = hapticDevice[i]->getSpecifications();
 
 		//****************************************************************************************************************CHANGES FOR CURSOR
-		tool[i] = new cToolCursor(world);
-		tool[i]->setHapticDevice(hapticDevice[i]);
-		tool[i]->setRadius(0.001);
-		tool[i]->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
-		tool[i]->start();
-		world->addChild(tool[i]);
-
+		tool[i] = new MyBall(world);
+		//tool[i] = new cToolCursor(world);
+		tool[i]->m_tool->setHapticDevice(hapticDevice[i]);
+		tool[i]->m_tool->setRadius(0.001);
+		tool[i]->m_tool->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
+		tool[i]->m_tool->start();
+		world->addChild(tool[i]->m_tool);
+		springs[i] = new MySpring(tool[i], person);
+		world->addChild(springs[i]->line_s);
 		// if the device has a gripper, enable the gripper to simulate a user switch
 		hapticDevice[i]->setEnableGripperUserSwitch(true);
 	}
@@ -540,6 +552,17 @@ void updateHaptics(void)
     // main haptic simulation loop
 	while (simulationRunning)
 	{
+		//loop through each spring first
+		for (int i = 0; i < numHapticDevices; i++)
+		{
+			springs[i]->getSpringForce();
+			//s2_springs[i]->setSpringDamping();
+		}
+		//loop through each point second
+		//for (int i = 0; i < numHapticDevices; i++)
+		//{
+		//	tool[i]->forcesBall();
+		//}
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			//****************************************************************************MAGIC
@@ -561,7 +584,7 @@ void updateHaptics(void)
 			{
 				cVector3d offset = 0.0009 * workspaceVector;
 				//workspaceCentre += offset;
-				tool[i]->setLocalPos(tool[i]->getLocalPos() + offset);
+				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				cameraPos += offset;
 				lookAtPos += offset;
 				camera->set(cameraPos,    // camera position (eye)
@@ -586,7 +609,7 @@ void updateHaptics(void)
 			//// update position and orienation of cursor
 			//cursor->setLocalPos(position);
 			//cursor->setLocalRot(rotation);
-			tool[i]->updateFromDevice();
+			tool[i]->m_tool->updateFromDevice();
 			//****************************************************************************MAGIC
 
 
@@ -597,9 +620,11 @@ void updateHaptics(void)
 			//cVector3d force(0, 0, 0);
 			//cVector3d torque(0, 0, 0);
 			//double gripperForce = 0.0;
-			tool[i]->computeInteractionForces();
-			tool[i]->setDeviceLocalForce(calcNetForces(tool[i]->getDeviceLocalForce()));
-			debugVector = tool[i]->getDeviceLocalForce();
+			tool[i]->m_tool->computeInteractionForces();
+			//tool[i]->m_tool->setDeviceLocalForce(tool[i]->forcesBall() + tool[i]->m_tool->getDeviceLocalForce()); 
+			debugVector = tool[i]->m_tool->getDeviceLocalForce();
+
+			springs[i]->setLine();
 			//this gets the forces acting on the device
 			//cout << tool[i]->getDeviceLocalForce() << endl;
 			//****************************************************************************MAGIC
@@ -614,8 +639,9 @@ void updateHaptics(void)
 			// signal frequency counter
 			//freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
-			tool[i]->applyToDevice();
+			tool[i]->m_tool->applyToDevice();
 		}	//****************************************************************************MAGIC
+
 	}
     // exit haptics thread
     simulationFinished = true;
