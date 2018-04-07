@@ -1,2 +1,4 @@
-﻿  application.cpp
+﻿  MyBall.cpp
+  MySpring.cpp
+  application.cpp
   application-VS2015.vcxproj -> U:\CPSC599\Chai3D\templates\Repo\../../bin/win-Win32/application-GLFW.exe

@@ -92,7 +92,7 @@ int swapInterval = 1;
 //add 3d mesh file
 cMultiMesh * monkey;			//debug monkey for testing friction
 //MyBall* person;
-cShapeSphere* person;
+Person* person;
 MySpring* springs[MAX_DEVICES];
 MyBall* tool[MAX_DEVICES];							// tool cursor for chai3d collision 
 //cToolCursor *tool[MAX_DEVICES];				//the new cursor
@@ -319,8 +319,9 @@ int main(int argc, char* argv[])
 	//person = new cShapeSphere(0.001);
 	//person = new MyBall(world);
 	//person->setBallPos(cVector3d(0.01, 0, 0));
-	person = new cShapeSphere(0.001);
-	person->setLocalPos(cVector3d(0.01, 0, 0));
+	person = new Person(0.001);
+	person->m_sphere->setLocalPos(cVector3d(0.01, 0, 0));
+	world->addChild(person->m_sphere);
 
 	for (int i = 0; i < numHapticDevices; i++)
 	{
@@ -631,9 +632,11 @@ void updateHaptics(void)
 			// signal frequency counter
 			//freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
-			tool[i]->m_tool->applyToDevice();
+			tool[i]->m_tool->applyToDevice();	
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
+
+		person->moveBall();
 	}
 	// exit haptics thread
 	simulationFinished = true;

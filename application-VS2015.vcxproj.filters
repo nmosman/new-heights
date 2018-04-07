@@ -16,6 +16,9 @@
     <ClCompile Include="MySpring.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Person.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Object Include="wall2.obj" />
@@ -27,5 +30,6 @@
   <ItemGroup>
     <ClInclude Include="MyBall.h" />
     <ClInclude Include="MySpring.h" />
+    <ClInclude Include="Person.h" />
   </ItemGroup>
 </Project>

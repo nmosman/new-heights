@@ -1,17 +1,17 @@
-#include "MyBall.h"
+#include "Person.h"
 
 
 
-//MyBall::MyBall()
+//Person::Person()
 //{
 //}
 
 
-MyBall::~MyBall()
+Person::~Person()
 {
 }
 
-chai3d::cVector3d MyBall::calcForceNet()
+chai3d::cVector3d Person::calcForceNet()
 {
 	if (hasForce) {
 		return force_p_spring + force_p_gravity + force_p_damping + force_p_spring_damping + force_p_device;
@@ -22,7 +22,7 @@ chai3d::cVector3d MyBall::calcForceNet()
 	}
 }
 
-void MyBall::integrate()
+void Person::integrate()
 {
 	acc_p = calcForceNet() / mass_p;
 	vel_p = vel_p + deltaT * acc_p;
@@ -33,50 +33,49 @@ void MyBall::integrate()
 
 
 
-void MyBall::moveBall()
+void Person::moveBall()
 {
 	force_p_damping = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_gravity = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
 
-	pos_p = this->m_tool->getLocalPos();
+	//pos_p = this->m_sphere->getLocalPos();
 
 	getForceDamping();
 	//getSpringDamping();
 	getForceGravity();
-	getForceDevice();
-	//integrate();
-	this->m_tool->setDeviceLocalForce(this->calcForceNet());
+	//getForceDevice();
+	integrate();
 
 	force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_spring_damping = chai3d::cVector3d(0.0, 0.0, 0.0);
 
-	//this->m_tool->setLocalPos(pos_p);
+	this->m_sphere->setLocalPos(pos_p);
 }
 
-void MyBall::setBallPos(chai3d::cVector3d a_pos)
+void Person::setBallPos(chai3d::cVector3d a_pos)
 {
-	this->m_tool->setLocalPos(a_pos);
+	this->m_sphere->setLocalPos(a_pos);
 	this->pos_p = a_pos;
 }
 
-void MyBall::getForceDevice()
+void Person::getForceDevice()
 {
-	this->m_tool->computeInteractionForces();
-	force_p_device = this->m_tool->getDeviceLocalForce();
+	//this->computeInteractionForces();
+	//force_p_device = this->m_sphere->getDeviceLocalForce();
 }
 
-void MyBall::getForceGravity()
+void Person::getForceGravity()
 {
 	force_p_gravity = mass_p * chai3d::cVector3d(0.0, 0.0, -9.81);
 }
 
-void MyBall::getForceDamping()
+void Person::getForceDamping()
 {
 	force_p_damping = -b_air * vel_p;
 }
 
-void MyBall::getSpringDamping()
+void Person::getSpringDamping()
 {
 	force_p_spring_damping = -b_spring * vel_p;
 }
