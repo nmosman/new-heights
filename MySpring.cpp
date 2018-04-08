@@ -24,15 +24,16 @@ MySpring::~MySpring()
 
 void MySpring::getSpringForce()
 {
-	double distance = (ball_a->m_tool->getDeviceGlobalPos() - ball_b->m_sphere->getLocalPos()).length();
+	chai3d::cVector3d d_a = ball_a->m_tool->m_hapticPoint->getGlobalPosProxy();
+	double distance = (d_a - ball_b->m_sphere->getLocalPos()).length();
 	if (distance > n_length) {
 		//chai3d::cVector3d force_a = -k_spring * (ball_a->getLocalPos() - ball_b->getLocalPos());
-		chai3d::cVector3d force_a = -k_spring * (distance - n_length) * chai3d::cNormalize(ball_a->m_tool->getDeviceGlobalPos() - ball_b->m_sphere->getLocalPos());
+		chai3d::cVector3d force_a = -k_spring * (distance - n_length) * chai3d::cNormalize(d_a - ball_b->m_sphere->getLocalPos());
 		chai3d::cVector3d force_b = -force_a;
 		ball_a->force_p_spring += force_a;
 		ball_b->force_p_spring += force_b;
 		//std::cout << ball_a->getLocalPos() << std::endl;
-		chai3d::cVector3d dir_b = cNormalize(ball_a->m_tool->getDeviceGlobalPos() - ball_b->m_sphere->getLocalPos());
+		chai3d::cVector3d dir_b = cNormalize(d_a - ball_b->m_sphere->getLocalPos());
 		chai3d::cVector3d dir_a = -dir_b;
 		double mag_a1 = chai3d::cDot(ball_a->vel_p, dir_a);
 		double mag_a2 = chai3d::cDot(ball_b->vel_p, dir_a);
@@ -57,7 +58,8 @@ void MySpring::setSpringConstant(double x)
 
 void MySpring::setLine()
 {
-	line_s->m_pointA = ball_a->m_tool->getDeviceGlobalPos();
+	chai3d::cVector3d d_a = ball_a->m_tool->m_hapticPoint->getGlobalPosProxy();
+	line_s->m_pointA = d_a;
 	line_s->m_pointB = ball_b->m_sphere->getLocalPos();
 }
 
