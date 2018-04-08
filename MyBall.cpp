@@ -39,7 +39,7 @@ void MyBall::moveBall()
 	force_p_gravity = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
 
-	pos_p = this->m_tool->getLocalPos();
+	//pos_p = this->m_tool->getLocalPos();
 
 	getForceDamping();
 	//getSpringDamping();
