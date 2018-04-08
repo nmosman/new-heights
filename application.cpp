@@ -10,6 +10,7 @@
 #include "MySpring.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
+#include "MyMaterial.h"
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -36,6 +37,12 @@ bool mirroredDisplay = false;
 
 const int MAX_DEVICES = 2;
 
+
+// 1 means 3rd person, 2 is 1st person
+int cameraPosState = 1;
+
+
+
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
@@ -49,6 +56,8 @@ cCamera* camera;
 // a light source to illuminate the objects in the world
 cDirectionalLight *light;
 
+// secondary light source to increase intensity of light
+cDirectionalLight *light_2;
 // a haptic device handler
 cHapticDeviceHandler* handler;
 
@@ -103,6 +112,7 @@ const double vel_g = 9.81;
 double mass_1 = 1.0;	//kg
 cVector3d debugVector;
 
+
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
 //------------------------------------------------------------------------------
@@ -111,6 +121,7 @@ cVector3d debugVector;
 cVector3d calcForceGravity()
 {
 	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
+	//return cVector3d(0.0, 0.0, 0.0);
 };
 cVector3d calcNetForces(cVector3d f_tool)
 {
@@ -137,7 +148,12 @@ void close(void);
 
 // global vector for updating tool position
 cVector3d updateToolPos;
+cVector3d lookAtPos_1(0.0, 0.0, 0.0);
+
+cVector3d lookAtPos_2(0.0, 0.0, 0.05);
+
 cVector3d lookAtPos(0.0, 0.0, 0.0);
+
 cVector3d cameraPos(0.05, 0.0, 0.0);
 
 // global workspace centre position vector
@@ -164,6 +180,7 @@ int main(int argc, char* argv[])
 	cout << "Keyboard Options:" << endl << endl;
 	cout << "[f] - Enable/Disable full screen mode" << endl;
 	cout << "[m] - Enable/Disable vertical mirroring" << endl;
+	cout << "[c] - Toggle Camera Views" << endl;
 	cout << "[q] - Exit application" << endl;
 	cout << endl << endl;
 
@@ -251,7 +268,7 @@ int main(int argc, char* argv[])
 	world = new cWorld();
 
 	// set the background color of the environment
-	world->m_backgroundColor.setBlack();
+	world->m_backgroundColor.setBlueLight();
 
 	// create a camera and insert it into the virtual world
 	camera = new cCamera(world);
@@ -277,18 +294,19 @@ int main(int argc, char* argv[])
 
 	// create a directional light source
 	light = new cDirectionalLight(world);
-
+	light_2 = new cDirectionalLight(world);
 	// insert light source inside world
 	world->addChild(light);
-
+	world->addChild(light_2);
 	// enable light source
 	light->setEnabled(true);
+	light_2->setEnabled(true);
 
 	// define direction of light beam
-	light->setDir(-1.0, 0.0, 0.0);
-
+	light->setDir(-0.5, -0.2, 0.0);
+	light_2->setDir(-0.5, -0.2, 0.0);
 	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.01);
+	cursor = new cShapeSphere(0.03);
 
 	// insert cursor inside world
 	//world->addChild(cursor);
@@ -297,10 +315,29 @@ int main(int argc, char* argv[])
 	//add monkey Fantasy yatch.obj
 	monkey = new cMultiMesh();
 	//monkey->loadFromFile("monkey.obj");
-	monkey->loadFromFile("wall3.obj");
+	monkey->loadFromFile("wall_v8.obj");
+
+
+
+
+	cMesh* mesh = monkey->getMesh(0);
+
+
+	mesh->m_material = MyMaterial::create();
+	
+
+	// create a colour texture map for this mesh object
+	cTexture2dPtr albedoMap = cTexture2d::create();
+	albedoMap->loadFromFile("images/cliff3.jpg");
+	albedoMap->setWrapModeS(GL_REPEAT);
+	albedoMap->setWrapModeT(GL_REPEAT);
+
 	monkey->scale(0.005);
 	monkey->setStiffness(1000);
-	monkey->setFriction(1, 0.5);
+	monkey->setFriction(10, 10);
+	// assign textures to the mesh
+	mesh->m_texture = albedoMap;
+	mesh->setUseTexture(true);
 
 	monkey->createAABBCollisionDetector(0.001);
 	world->addChild(monkey);
@@ -338,6 +375,7 @@ int main(int argc, char* argv[])
 		cHapticDeviceInfo info = hapticDevice[i]->getSpecifications();
 
 		//****************************************************************************************************************CHANGES FOR CURSOR
+
 		tool[i] = new MyBall(world);
 		tool[i]->m_tool->setHapticDevice(hapticDevice[i]);
 		tool[i]->m_tool->setRadius(0.001);
@@ -448,6 +486,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
 	}
 
+
 	// option - toggle fullscreen
 	else if (a_key == GLFW_KEY_F)
 	{
@@ -483,6 +522,24 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		mirroredDisplay = !mirroredDisplay;
 		camera->setMirrorVertical(mirroredDisplay);
 	}
+
+	// option - toggle camera angle views
+	else if (a_key == GLFW_KEY_C)
+	{
+		if (lookAtPos.equals(lookAtPos_1))
+		{
+			lookAtPos = lookAtPos_2;
+		}
+		else
+		{
+			lookAtPos = lookAtPos_1;
+		}
+
+		camera->set(cameraPos,    // camera position (eye)
+			lookAtPos,    // look at position (target)
+			cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+	}
+
 }
 
 //------------------------------------------------------------------------------
@@ -571,7 +628,8 @@ void updateHaptics(void)
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
 
-			cVector3d workspaceVector(0,0, position.z() - workspaceCentre.z());
+			//cVector3d workspaceVector(0,0, position.z() - workspaceCentre.z());
+			cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
 			updateToolPos = workspaceVector;
 
 			if (workspaceVector.length() > 0.035)
@@ -581,6 +639,8 @@ void updateHaptics(void)
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				cameraPos += offset;
 				lookAtPos += offset;
+				lookAtPos_1 += offset;
+				lookAtPos_2 += offset;
 				camera->set(cameraPos,    // camera position (eye)
 					lookAtPos,    // look at position (target)
 					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
@@ -630,7 +690,7 @@ void updateHaptics(void)
 			//hapticDevice->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
 
 			// signal frequency counter
-			//freqCounterHaptics.signal(1);
+			freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
 			tool[i]->m_tool->applyToDevice();	
 			springs[i]->setLine();
