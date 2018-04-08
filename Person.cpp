@@ -37,7 +37,7 @@ void Person::moveBall()
 {
 	force_p_damping = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_gravity = chai3d::cVector3d(0.0, 0.0, 0.0);
-	force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
+	
 
 	//pos_p = this->m_sphere->getLocalPos();
 
@@ -49,7 +49,7 @@ void Person::moveBall()
 
 	force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0);
 	force_p_spring_damping = chai3d::cVector3d(0.0, 0.0, 0.0);
-
+	force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
 	this->m_sphere->setLocalPos(pos_p);
 }
 

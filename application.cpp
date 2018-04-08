@@ -606,10 +606,11 @@ void updateHaptics(void)
 	// simulation in now running
 	simulationRunning = true;
 	simulationFinished = false;
-
+	cVector3d lift;
 	// main haptic simulation loop
 	while (simulationRunning)
 	{
+		lift.zero();
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			springs[i]->getSpringForce();
@@ -678,6 +679,7 @@ void updateHaptics(void)
 			//tool[i]->m_tool->setDeviceLocalForce(calcNetForces(tool[i]->m_tool->getDeviceLocalForce()));
 			tool[i]->moveBall();
 			debugVector = tool[i]->m_tool->getDeviceLocalForce();
+			lift += tool[i]->force_p_device;
 			//this gets the forces acting on the device
 			//cout << tool[i]->getDeviceLocalForce() << endl;
 			//****************************************************************************MAGIC
@@ -695,7 +697,7 @@ void updateHaptics(void)
 			tool[i]->m_tool->applyToDevice();	
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
-
+		person->force_p_device = lift;
 		person->moveBall();
 	}
 	// exit haptics thread
