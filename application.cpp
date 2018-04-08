@@ -1,6 +1,6 @@
 //==============================================================================
 /*
-\author    Your Name
+\author    Ahmad Tahir and Nasir Osman
 */
 //==============================================================================
 
@@ -8,9 +8,10 @@
 #include "chai3d.h"
 #include "MyBall.h"
 #include "MySpring.h"
+#include "MyMaterial.h"
+#include "MyProxyAlgorithm.h"
 //------------------------------------------------------------------------------
 #include <GLFW/glfw3.h>
-#include "MyMaterial.h"
 //------------------------------------------------------------------------------
 using namespace chai3d;
 using namespace std;
@@ -37,12 +38,6 @@ bool mirroredDisplay = false;
 
 const int MAX_DEVICES = 2;
 
-
-// 1 means 3rd person, 2 is 1st person
-int cameraPosState = 1;
-
-
-
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
 //------------------------------------------------------------------------------
@@ -58,14 +53,21 @@ cDirectionalLight *light;
 
 // secondary light source to increase intensity of light
 cDirectionalLight *light_2;
+
 // a haptic device handler
 cHapticDeviceHandler* handler;
 
 // a pointer to the current haptic device
 cGenericHapticDevicePtr hapticDevice[MAX_DEVICES];
 
+// indicators of each device being in collision 
+bool isHoldingRock[MAX_DEVICES];
+
 // a label to display the rates [Hz] at which the simulation is running
 cLabel* labelRates;
+
+// a label to display debug info
+cLabel* labelDebugInfo;
 
 // a small sphere (cursor) representing the haptic device 
 cShapeSphere* cursor;
@@ -76,11 +78,28 @@ bool simulationRunning = false;
 // flag to indicate if the haptic simulation has terminated
 bool simulationFinished = false;
 
+// a state variable for whether debugging mode is enabled
+bool debugMode = false;
+
+// Mesh texture for the "monkey"
+cMesh* mesh;
+// whether the player has at least one hold on the cliff
+bool isHolding = false;
+
+// start state of the player 
+bool startState = true;
+
+
+
 // a frequency counter to measure the simulation graphic rate
 cFrequencyCounter freqCounterGraphics;
 
 // a frequency counter to measure the simulation haptic rate
 cFrequencyCounter freqCounterHaptics;
+
+// a pointer to the custom proxy rendering algorithm inside the tool
+MyProxyAlgorithm* proxyAlgorithm;
+
 
 // haptic thread
 cThread* hapticsThread;
@@ -100,18 +119,17 @@ int swapInterval = 1;
 //****************************************************************************************************************VARIABLES
 //add 3d mesh file
 cMultiMesh * monkey;			//debug monkey for testing friction
-//MyBall* person;
+								//MyBall* person;
 Person* person;
 MySpring* springs[MAX_DEVICES];
 MyBall* tool[MAX_DEVICES];							// tool cursor for chai3d collision 
-//cToolCursor *tool[MAX_DEVICES];				//the new cursor
+													//cToolCursor *tool[MAX_DEVICES];				//the new cursor
 
 int numHapticDevices;
 
 const double vel_g = 9.81;
 double mass_1 = 1.0;	//kg
 cVector3d debugVector;
-
 
 //------------------------------------------------------------------------------
 // DECLARED FUNCTIONS
@@ -121,7 +139,6 @@ cVector3d debugVector;
 cVector3d calcForceGravity()
 {
 	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
-	//return cVector3d(0.0, 0.0, 0.0);
 };
 cVector3d calcNetForces(cVector3d f_tool)
 {
@@ -148,11 +165,11 @@ void close(void);
 
 // global vector for updating tool position
 cVector3d updateToolPos;
+cVector3d lookAtPos(0.0, 0.0, 0.0);
 cVector3d lookAtPos_1(0.0, 0.0, 0.0);
 
 cVector3d lookAtPos_2(0.0, 0.0, 0.05);
 
-cVector3d lookAtPos(0.0, 0.0, 0.0);
 
 cVector3d cameraPos(0.05, 0.0, 0.0);
 
@@ -180,7 +197,8 @@ int main(int argc, char* argv[])
 	cout << "Keyboard Options:" << endl << endl;
 	cout << "[f] - Enable/Disable full screen mode" << endl;
 	cout << "[m] - Enable/Disable vertical mirroring" << endl;
-	cout << "[c] - Toggle Camera Views" << endl;
+	cout << "[c] - Toggle Camera View" << endl;
+	cout << "[d] - Debugging Mode for the Devs" << endl;
 	cout << "[q] - Exit application" << endl;
 	cout << endl << endl;
 
@@ -306,7 +324,9 @@ int main(int argc, char* argv[])
 	light->setDir(-0.5, -0.2, 0.0);
 	light_2->setDir(-0.5, -0.2, 0.0);
 	// create a sphere (cursor) to represent the haptic device
-	cursor = new cShapeSphere(0.03);
+
+	// create a sphere (cursor) to represent the haptic device
+	cursor = new cShapeSphere(0.01);
 
 	// insert cursor inside world
 	//world->addChild(cursor);
@@ -315,29 +335,32 @@ int main(int argc, char* argv[])
 	//add monkey Fantasy yatch.obj
 	monkey = new cMultiMesh();
 	//monkey->loadFromFile("monkey.obj");
-	monkey->loadFromFile("wall_v8.obj");
+	monkey->loadFromFile("wall_v10.obj");
 
 
 
 
-	cMesh* mesh = monkey->getMesh(0);
+	 mesh = monkey->getMesh(0);
 
 
 	mesh->m_material = MyMaterial::create();
-	
 
+	
 	// create a colour texture map for this mesh object
 	cTexture2dPtr albedoMap = cTexture2d::create();
 	albedoMap->loadFromFile("images/cliff3.jpg");
 	albedoMap->setWrapModeS(GL_REPEAT);
 	albedoMap->setWrapModeT(GL_REPEAT);
 
-	monkey->scale(0.005);
-	monkey->setStiffness(1000);
-	monkey->setFriction(10, 10);
+
 	// assign textures to the mesh
 	mesh->m_texture = albedoMap;
-	mesh->setUseTexture(true);
+    mesh->setUseTexture(true);
+
+	monkey->scale(0.005);
+	monkey->setStiffness(2000);
+	monkey->setFriction(1, 0.5);
+
 
 	monkey->createAABBCollisionDetector(0.001);
 	world->addChild(monkey);
@@ -405,6 +428,9 @@ int main(int argc, char* argv[])
 	labelRates->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelRates);
 
+	labelDebugInfo = new cLabel(font);
+	labelDebugInfo->m_fontColor.setWhite();
+	camera->m_frontLayer->addChild(labelDebugInfo);
 
 	//--------------------------------------------------------------------------
 	// START SIMULATION
@@ -486,7 +512,6 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
 	}
 
-
 	// option - toggle fullscreen
 	else if (a_key == GLFW_KEY_F)
 	{
@@ -516,13 +541,6 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		}
 	}
 
-	// option - toggle vertical mirroring
-	else if (a_key == GLFW_KEY_M)
-	{
-		mirroredDisplay = !mirroredDisplay;
-		camera->setMirrorVertical(mirroredDisplay);
-	}
-
 	// option - toggle camera angle views
 	else if (a_key == GLFW_KEY_C)
 	{
@@ -538,6 +556,18 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		camera->set(cameraPos,    // camera position (eye)
 			lookAtPos,    // look at position (target)
 			cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+	}
+	// option - toggle vertical mirroring
+	else if (a_key == GLFW_KEY_M)
+	{
+		mirroredDisplay = !mirroredDisplay;
+		camera->setMirrorVertical(mirroredDisplay);
+	}
+
+	// option - toggle debugging mode
+	else if (a_key == GLFW_KEY_D)
+	{
+		debugMode = !debugMode;
 	}
 
 }
@@ -574,10 +604,30 @@ void updateGraphics(void)
 
 	// update haptic and graphic rate data
 	labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-		cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" + debugVector.str());
+		cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" );
 
 	// update position of label
 	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
+
+	std::string debugInfo;
+
+	if (debugMode)
+	{
+		debugInfo += "isTouchingRock: " + cStr(isHolding);
+		debugInfo += "\nNet Body Force: " + debugVector.str();
+
+		    
+		// update haptic and graphic rate data
+	}
+
+
+
+
+	labelDebugInfo->setText(debugInfo);
+	// update position of label
+	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
+
+	labelDebugInfo->setLocalPos((int)(0, 25));
 
 
 	/////////////////////////////////////////////////////////////////////
@@ -629,13 +679,14 @@ void updateHaptics(void)
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
 
-			//cVector3d workspaceVector(0,0, position.z() - workspaceCentre.z());
 			cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
 			updateToolPos = workspaceVector;
 
+			isHolding = tool[i]->m_tool->m_hapticPoint->isInContact(mesh);
 			if (workspaceVector.length() > 0.035)
 			{
 				cVector3d offset = 0.0003 * workspaceVector;
+				
 				//workspaceCentre += offset;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				cameraPos += offset;
@@ -665,8 +716,10 @@ void updateHaptics(void)
 			//cursor->setLocalPos(position);
 			//cursor->setLocalRot(rotation);
 			tool[i]->m_tool->updateFromDevice();
+			
 			//****************************************************************************MAGIC
 
+		
 
 			/////////////////////////////////////////////////////////////////////
 			// COMPUTE FORCES
@@ -694,10 +747,10 @@ void updateHaptics(void)
 			// signal frequency counter
 			freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
-			tool[i]->m_tool->applyToDevice();	
+			tool[i]->m_tool->applyToDevice();
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
-		person->force_p_device = lift;
+
 		person->moveBall();
 	}
 	// exit haptics thread
