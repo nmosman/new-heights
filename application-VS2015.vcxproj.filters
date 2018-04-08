@@ -16,15 +16,20 @@
     <ClCompile Include="MySpring.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Person.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Object Include="wall2.obj" />
+    <Object Include="wall3.obj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="2k_moon.jpg" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MyBall.h" />
     <ClInclude Include="MySpring.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="README.md" />
+    <ClInclude Include="Person.h" />
   </ItemGroup>
 </Project>

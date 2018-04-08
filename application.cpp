@@ -1,6 +1,6 @@
 //==============================================================================
 /*
-    \author    Your Name
+\author    Your Name
 */
 //==============================================================================
 
@@ -21,10 +21,10 @@ using namespace std;
 
 // stereo Mode
 /*
-    C_STEREO_DISABLED:            Stereo is disabled 
-    C_STEREO_ACTIVE:              Active stereo for OpenGL NVDIA QUADRO cards
-    C_STEREO_PASSIVE_LEFT_RIGHT:  Passive stereo where L/R images are rendered next to each other
-    C_STEREO_PASSIVE_TOP_BOTTOM:  Passive stereo where L/R images are rendered above each other
+C_STEREO_DISABLED:            Stereo is disabled
+C_STEREO_ACTIVE:              Active stereo for OpenGL NVDIA QUADRO cards
+C_STEREO_PASSIVE_LEFT_RIGHT:  Passive stereo where L/R images are rendered next to each other
+C_STEREO_PASSIVE_TOP_BOTTOM:  Passive stereo where L/R images are rendered above each other
 */
 cStereoMode stereoMode = C_STEREO_DISABLED;
 
@@ -80,7 +80,7 @@ cThread* hapticsThread;
 GLFWwindow* window = NULL;
 
 // current width of window
-int width  = 0;
+int width = 0;
 
 // current height of window
 int height = 0;
@@ -91,11 +91,10 @@ int swapInterval = 1;
 //****************************************************************************************************************VARIABLES
 //add 3d mesh file
 cMultiMesh * monkey;			//debug monkey for testing friction
-
-// tool cursor for chai3d collision 
-MyBall* tool[MAX_DEVICES];
+//MyBall* person;
+Person* person;
 MySpring* springs[MAX_DEVICES];
-MyBall* person;
+MyBall* tool[MAX_DEVICES];							// tool cursor for chai3d collision 
 //cToolCursor *tool[MAX_DEVICES];				//the new cursor
 
 int numHapticDevices;
@@ -109,15 +108,14 @@ cVector3d debugVector;
 //------------------------------------------------------------------------------
 
 //****************************************************************************************************************FUNCTIONS
-//cVector3d calcForceGravity()
-//{
-//	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
-//};
-//cVector3d calcNetForces(MyBall* tool) 
-//{
-//
-//	return 
-//};
+cVector3d calcForceGravity()
+{
+	return cVector3d(0.0, 0.0, vel_g * mass_1 * -1);
+};
+cVector3d calcNetForces(cVector3d f_tool)
+{
+	return calcForceGravity() + f_tool;
+};
 
 // callback when the window display is resized
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height);
@@ -140,166 +138,166 @@ void close(void);
 // global vector for updating tool position
 cVector3d updateToolPos;
 cVector3d lookAtPos(0.0, 0.0, 0.0);
-cVector3d cameraPos(0.1, 0.0, 0.07);
+cVector3d cameraPos(0.05, 0.0, 0.0);
 
 // global workspace centre position vector
 cVector3d workspaceCentre(0.0, 0.0, 0.0);
 
 //==============================================================================
 /*
-    TEMPLATE:    application.cpp
+TEMPLATE:    application.cpp
 
-    Description of your application.
+Description of your application.
 */
 //==============================================================================
 
 int main(int argc, char* argv[])
 {
-    //--------------------------------------------------------------------------
-    // INITIALIZATION
-    //--------------------------------------------------------------------------
+	//--------------------------------------------------------------------------
+	// INITIALIZATION
+	//--------------------------------------------------------------------------
 
-    cout << endl;
-    cout << "-----------------------------------" << endl;
-    cout << "CHAI3D" << endl;
-    cout << "-----------------------------------" << endl << endl << endl;
-    cout << "Keyboard Options:" << endl << endl;
-    cout << "[f] - Enable/Disable full screen mode" << endl;
-    cout << "[m] - Enable/Disable vertical mirroring" << endl;
-    cout << "[q] - Exit application" << endl;
-    cout << endl << endl;
+	cout << endl;
+	cout << "-----------------------------------" << endl;
+	cout << "CHAI3D" << endl;
+	cout << "-----------------------------------" << endl << endl << endl;
+	cout << "Keyboard Options:" << endl << endl;
+	cout << "[f] - Enable/Disable full screen mode" << endl;
+	cout << "[m] - Enable/Disable vertical mirroring" << endl;
+	cout << "[q] - Exit application" << endl;
+	cout << endl << endl;
 
 
-    //--------------------------------------------------------------------------
-    // OPENGL - WINDOW DISPLAY
-    //--------------------------------------------------------------------------
+	//--------------------------------------------------------------------------
+	// OPENGL - WINDOW DISPLAY
+	//--------------------------------------------------------------------------
 
-    // initialize GLFW library
-    if (!glfwInit())
-    {
-        cout << "failed initialization" << endl;
-        cSleepMs(1000);
-        return 1;
-    }
+	// initialize GLFW library
+	if (!glfwInit())
+	{
+		cout << "failed initialization" << endl;
+		cSleepMs(1000);
+		return 1;
+	}
 
-    // set error callback
-    glfwSetErrorCallback(errorCallback);
+	// set error callback
+	glfwSetErrorCallback(errorCallback);
 
-    // compute desired size of window
-    const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-    int w = 0.8 * mode->height;
-    int h = 0.5 * mode->height;
-    int x = 0.5 * (mode->width - w);
-    int y = 0.5 * (mode->height - h);
+	// compute desired size of window
+	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	int w = 0.8 * mode->height;
+	int h = 0.5 * mode->height;
+	int x = 0.5 * (mode->width - w);
+	int y = 0.5 * (mode->height - h);
 
-    // set OpenGL version
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+	// set OpenGL version
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
 
-    // set active stereo mode
-    if (stereoMode == C_STEREO_ACTIVE)
-    {
-        glfwWindowHint(GLFW_STEREO, GL_TRUE);
-    }
-    else
-    {
-        glfwWindowHint(GLFW_STEREO, GL_FALSE);
-    }
+	// set active stereo mode
+	if (stereoMode == C_STEREO_ACTIVE)
+	{
+		glfwWindowHint(GLFW_STEREO, GL_TRUE);
+	}
+	else
+	{
+		glfwWindowHint(GLFW_STEREO, GL_FALSE);
+	}
 
-    // create display context
-    window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
-    if (!window)
-    {
-        cout << "failed to create window" << endl;
-        cSleepMs(1000);
-        glfwTerminate();
-        return 1;
-    }
+	// create display context
+	window = glfwCreateWindow(w, h, "CHAI3D", NULL, NULL);
+	if (!window)
+	{
+		cout << "failed to create window" << endl;
+		cSleepMs(1000);
+		glfwTerminate();
+		return 1;
+	}
 
-    // get width and height of window
-    glfwGetWindowSize(window, &width, &height);
+	// get width and height of window
+	glfwGetWindowSize(window, &width, &height);
 
-    // set position of window
-    glfwSetWindowPos(window, x, y);
+	// set position of window
+	glfwSetWindowPos(window, x, y);
 
-    // set key callback
-    glfwSetKeyCallback(window, keyCallback);
+	// set key callback
+	glfwSetKeyCallback(window, keyCallback);
 
-    // set resize callback
-    glfwSetWindowSizeCallback(window, windowSizeCallback);
+	// set resize callback
+	glfwSetWindowSizeCallback(window, windowSizeCallback);
 
-    // set current display context
-    glfwMakeContextCurrent(window);
+	// set current display context
+	glfwMakeContextCurrent(window);
 
-    // sets the swap interval for the current display context
-    glfwSwapInterval(swapInterval);
+	// sets the swap interval for the current display context
+	glfwSwapInterval(swapInterval);
 
 #ifdef GLEW_VERSION
-    // initialize GLEW library
-    if (glewInit() != GLEW_OK)
-    {
-        cout << "failed to initialize GLEW library" << endl;
-        glfwTerminate();
-        return 1;
-    }
+	// initialize GLEW library
+	if (glewInit() != GLEW_OK)
+	{
+		cout << "failed to initialize GLEW library" << endl;
+		glfwTerminate();
+		return 1;
+	}
 #endif
 
 
-    //--------------------------------------------------------------------------
-    // WORLD - CAMERA - LIGHTING
-    //--------------------------------------------------------------------------
+	//--------------------------------------------------------------------------
+	// WORLD - CAMERA - LIGHTING
+	//--------------------------------------------------------------------------
 
-    // create a new world.
-    world = new cWorld();
+	// create a new world.
+	world = new cWorld();
 
-    // set the background color of the environment
-    world->m_backgroundColor.setBlack();
+	// set the background color of the environment
+	world->m_backgroundColor.setBlack();
 
-    // create a camera and insert it into the virtual world
-    camera = new cCamera(world);
-    world->addChild(camera);
+	// create a camera and insert it into the virtual world
+	camera = new cCamera(world);
+	world->addChild(camera);
 
-    // position and orient the camera
-    camera->set( cVector3d (0.05, 0.0, 0.0),    // camera position (eye)
-                 cVector3d (0.0, 0.0, 0.0),    // look at position (target)
-                 cVector3d (0.0, 0.0, 1.0));   // direction of the (up) vector
+	// position and orient the camera
+	camera->set(cVector3d(0.05, 0.0, 0.0),    // camera position (eye)
+		cVector3d(0.0, 0.0, 0.0),    // look at position (target)
+		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 
-    // set the near and far clipping planes of the camera
-    camera->setClippingPlanes(0.01, 10.0);
+									 // set the near and far clipping planes of the camera
+	camera->setClippingPlanes(0.01, 10.0);
 
-    // set stereo mode
-    camera->setStereoMode(stereoMode);
+	// set stereo mode
+	camera->setStereoMode(stereoMode);
 
-    // set stereo eye separation and focal length (applies only if stereo is enabled)
-    camera->setStereoEyeSeparation(0.01);
-    camera->setStereoFocalLength(0.5);
+	// set stereo eye separation and focal length (applies only if stereo is enabled)
+	camera->setStereoEyeSeparation(0.01);
+	camera->setStereoFocalLength(0.5);
 
-    // set vertical mirrored display mode
-    camera->setMirrorVertical(mirroredDisplay);
+	// set vertical mirrored display mode
+	camera->setMirrorVertical(mirroredDisplay);
 
-    // create a directional light source
-    light = new cDirectionalLight(world);
+	// create a directional light source
+	light = new cDirectionalLight(world);
 
-    // insert light source inside world
-    world->addChild(light);
+	// insert light source inside world
+	world->addChild(light);
 
-    // enable light source
-    light->setEnabled(true);
+	// enable light source
+	light->setEnabled(true);
 
-    // define direction of light beam
-    light->setDir(-1.0, 0.0, 0.0); 
+	// define direction of light beam
+	light->setDir(-1.0, 0.0, 0.0);
 
-    // create a sphere (cursor) to represent the haptic device
-    cursor = new cShapeSphere(0.01);
+	// create a sphere (cursor) to represent the haptic device
+	cursor = new cShapeSphere(0.01);
 
-    // insert cursor inside world
-    //world->addChild(cursor);
+	// insert cursor inside world
+	//world->addChild(cursor);
 
 	//****************************************************************************************************************INITIALIZE STUFF
 	//add monkey Fantasy yatch.obj
 	monkey = new cMultiMesh();
 	//monkey->loadFromFile("monkey.obj");
-	monkey->loadFromFile("wall2.obj");
+	monkey->loadFromFile("wall3.obj");
 	monkey->scale(0.005);
 	monkey->setStiffness(1000);
 	monkey->setFriction(1, 0.5);
@@ -307,20 +305,23 @@ int main(int argc, char* argv[])
 	monkey->createAABBCollisionDetector(0.001);
 	world->addChild(monkey);
 
+	monkey->setLocalPos(0.0, -0.015, 0.0);
+	//--------------------------------------------------------------------------
+	// HAPTIC DEVICE
+	//--------------------------------------------------------------------------
 
-    //--------------------------------------------------------------------------
-    // HAPTIC DEVICE
-    //--------------------------------------------------------------------------
-
-    // create a haptic device handler
-    handler = new cHapticDeviceHandler();
+	// create a haptic device handler
+	handler = new cHapticDeviceHandler();
 
 	// get number of haptic devices
 	numHapticDevices = handler->getNumDevices();
 
-	//****************************************************************************************************************CHANGES FOR CURSOR
-	person = new MyBall(world);
-	person->setBallPos(cVector3d(0.1, 0, 0));
+	//person = new cShapeSphere(0.001);
+	//person = new MyBall(world);
+	//person->setBallPos(cVector3d(0.01, 0, 0));
+	person = new Person(0.001);
+	person->m_sphere->setLocalPos(cVector3d(0.01, 0, 0));
+	world->addChild(person->m_sphere);
 
 	for (int i = 0; i < numHapticDevices; i++)
 	{
@@ -338,12 +339,12 @@ int main(int argc, char* argv[])
 
 		//****************************************************************************************************************CHANGES FOR CURSOR
 		tool[i] = new MyBall(world);
-		//tool[i] = new cToolCursor(world);
 		tool[i]->m_tool->setHapticDevice(hapticDevice[i]);
 		tool[i]->m_tool->setRadius(0.001);
 		tool[i]->m_tool->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
 		tool[i]->m_tool->start();
 		world->addChild(tool[i]->m_tool);
+
 		springs[i] = new MySpring(tool[i], person);
 		world->addChild(springs[i]->line_s);
 		// if the device has a gripper, enable the gripper to simulate a user switch
@@ -354,145 +355,145 @@ int main(int argc, char* argv[])
 
 
 
-    //--------------------------------------------------------------------------
-    // WIDGETS
-    //--------------------------------------------------------------------------
+	//--------------------------------------------------------------------------
+	// WIDGETS
+	//--------------------------------------------------------------------------
 
-    // create a font
-    cFontPtr font = NEW_CFONTCALIBRI20();
-    
-    // create a label to display the haptic and graphic rates of the simulation
-    labelRates = new cLabel(font);
-    labelRates->m_fontColor.setWhite();
-    camera->m_frontLayer->addChild(labelRates);
+	// create a font
+	cFontPtr font = NEW_CFONTCALIBRI20();
 
-
-    //--------------------------------------------------------------------------
-    // START SIMULATION
-    //--------------------------------------------------------------------------
-
-    // create a thread which starts the main haptics rendering loop
-    hapticsThread = new cThread();
-    hapticsThread->start(updateHaptics, CTHREAD_PRIORITY_HAPTICS);
-
-    // setup callback when application exits
-    atexit(close);
+	// create a label to display the haptic and graphic rates of the simulation
+	labelRates = new cLabel(font);
+	labelRates->m_fontColor.setWhite();
+	camera->m_frontLayer->addChild(labelRates);
 
 
-    //--------------------------------------------------------------------------
-    // MAIN GRAPHIC LOOP
-    //--------------------------------------------------------------------------
+	//--------------------------------------------------------------------------
+	// START SIMULATION
+	//--------------------------------------------------------------------------
 
-    // call window size callback at initialization
-    windowSizeCallback(window, width, height);
+	// create a thread which starts the main haptics rendering loop
+	hapticsThread = new cThread();
+	hapticsThread->start(updateHaptics, CTHREAD_PRIORITY_HAPTICS);
 
-    // main graphic loop
-    while (!glfwWindowShouldClose(window))
-    {
-        // get width and height of window
-        glfwGetWindowSize(window, &width, &height);
+	// setup callback when application exits
+	atexit(close);
 
-        // render graphics
-        updateGraphics();
 
-        // swap buffers
-        glfwSwapBuffers(window);
+	//--------------------------------------------------------------------------
+	// MAIN GRAPHIC LOOP
+	//--------------------------------------------------------------------------
 
-        // process events
-        glfwPollEvents();
+	// call window size callback at initialization
+	windowSizeCallback(window, width, height);
 
-        // signal frequency counter
-        freqCounterGraphics.signal(1);
-    }
+	// main graphic loop
+	while (!glfwWindowShouldClose(window))
+	{
+		// get width and height of window
+		glfwGetWindowSize(window, &width, &height);
 
-    // close window
-    glfwDestroyWindow(window);
+		// render graphics
+		updateGraphics();
 
-    // terminate GLFW library
-    glfwTerminate();
+		// swap buffers
+		glfwSwapBuffers(window);
 
-    // exit
-    return 0;
+		// process events
+		glfwPollEvents();
+
+		// signal frequency counter
+		freqCounterGraphics.signal(1);
+	}
+
+	// close window
+	glfwDestroyWindow(window);
+
+	// terminate GLFW library
+	glfwTerminate();
+
+	// exit
+	return 0;
 }
 
 //------------------------------------------------------------------------------
 
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
 {
-    // update window size
-    width  = a_width;
-    height = a_height;
+	// update window size
+	width = a_width;
+	height = a_height;
 }
 
 //------------------------------------------------------------------------------
 
 void errorCallback(int a_error, const char* a_description)
 {
-    cout << "Error: " << a_description << endl;
+	cout << "Error: " << a_description << endl;
 }
 
 //------------------------------------------------------------------------------
 
 void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, int a_mods)
 {
-    // filter calls that only include a key press
-    if (a_action != GLFW_PRESS)
-    {
-        return;
-    }
+	// filter calls that only include a key press
+	if (a_action != GLFW_PRESS)
+	{
+		return;
+	}
 
-    // option - exit
-    else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
-    {
-        glfwSetWindowShouldClose(a_window, GLFW_TRUE);
-    }
+	// option - exit
+	else if ((a_key == GLFW_KEY_ESCAPE) || (a_key == GLFW_KEY_Q))
+	{
+		glfwSetWindowShouldClose(a_window, GLFW_TRUE);
+	}
 
-    // option - toggle fullscreen
-    else if (a_key == GLFW_KEY_F)
-    {
-        // toggle state variable
-        fullscreen = !fullscreen;
+	// option - toggle fullscreen
+	else if (a_key == GLFW_KEY_F)
+	{
+		// toggle state variable
+		fullscreen = !fullscreen;
 
-        // get handle to monitor
-        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+		// get handle to monitor
+		GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-        // get information about monitor
-        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+		// get information about monitor
+		const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
-        // set fullscreen or window mode
-        if (fullscreen)
-        {
-            glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
-            glfwSwapInterval(swapInterval);
-        }
-        else
-        {
-            int w = 0.8 * mode->height;
-            int h = 0.5 * mode->height;
-            int x = 0.5 * (mode->width - w);
-            int y = 0.5 * (mode->height - h);
-            glfwSetWindowMonitor(window, NULL, x, y, w, h, mode->refreshRate);
-            glfwSwapInterval(swapInterval);
-        }
-    }
+		// set fullscreen or window mode
+		if (fullscreen)
+		{
+			glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+			glfwSwapInterval(swapInterval);
+		}
+		else
+		{
+			int w = 0.8 * mode->height;
+			int h = 0.5 * mode->height;
+			int x = 0.5 * (mode->width - w);
+			int y = 0.5 * (mode->height - h);
+			glfwSetWindowMonitor(window, NULL, x, y, w, h, mode->refreshRate);
+			glfwSwapInterval(swapInterval);
+		}
+	}
 
-    // option - toggle vertical mirroring
-    else if (a_key == GLFW_KEY_M)
-    {
-        mirroredDisplay = !mirroredDisplay;
-        camera->setMirrorVertical(mirroredDisplay);
-    }
+	// option - toggle vertical mirroring
+	else if (a_key == GLFW_KEY_M)
+	{
+		mirroredDisplay = !mirroredDisplay;
+		camera->setMirrorVertical(mirroredDisplay);
+	}
 }
 
 //------------------------------------------------------------------------------
 
 void close(void)
 {
-    // stop the simulation
-    simulationRunning = false;
+	// stop the simulation
+	simulationRunning = false;
 
-    // wait for graphics and haptics loops to terminate
-    while (!simulationFinished) { cSleepMs(100); }
+	// wait for graphics and haptics loops to terminate
+	while (!simulationFinished) { cSleepMs(100); }
 
 	for (int i = 0; i < numHapticDevices; i++)
 	{
@@ -500,69 +501,62 @@ void close(void)
 		hapticDevice[i]->close();
 	}
 
-    // delete resources
-    delete hapticsThread;
-    delete world;
-    delete handler;
+	// delete resources
+	delete hapticsThread;
+	delete world;
+	delete handler;
 }
 
 //------------------------------------------------------------------------------
 
 void updateGraphics(void)
 {
-    /////////////////////////////////////////////////////////////////////
-    // UPDATE WIDGETS
-    /////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////
+	// UPDATE WIDGETS
+	/////////////////////////////////////////////////////////////////////
 
-    // update haptic and graphic rate data
-    labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
-        cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" + debugVector.str());
+	// update haptic and graphic rate data
+	labelRates->setText(cStr(freqCounterGraphics.getFrequency(), 0) + " Hz / " +
+		cStr(freqCounterHaptics.getFrequency(), 0) + " Hz" + debugVector.str());
 
-    // update position of label
-    labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
+	// update position of label
+	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
 
 
-    /////////////////////////////////////////////////////////////////////
-    // RENDER SCENE
-    /////////////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////////////
+	// RENDER SCENE
+	/////////////////////////////////////////////////////////////////////
 
-    // update shadow maps (if any)
-    world->updateShadowMaps(false, mirroredDisplay);
+	// update shadow maps (if any)
+	world->updateShadowMaps(false, mirroredDisplay);
 
-    // render world
-    camera->renderView(width, height);
+	// render world
+	camera->renderView(width, height);
 
-    // wait until all GL commands are completed
-    glFinish();
+	// wait until all GL commands are completed
+	glFinish();
 
-    // check for any OpenGL errors
-    GLenum err;
-    err = glGetError();
-    if (err != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(err);
+	// check for any OpenGL errors
+	GLenum err;
+	err = glGetError();
+	if (err != GL_NO_ERROR) cout << "Error:  %s\n" << gluErrorString(err);
 }
 
 //------------------------------------------------------------------------------
 
 void updateHaptics(void)
 {
-    // simulation in now running
-    simulationRunning  = true;
-    simulationFinished = false;
+	// simulation in now running
+	simulationRunning = true;
+	simulationFinished = false;
 
-    // main haptic simulation loop
+	// main haptic simulation loop
 	while (simulationRunning)
 	{
-		//loop through each spring first
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			springs[i]->getSpringForce();
-			//s2_springs[i]->setSpringDamping();
 		}
-		//loop through each point second
-		//for (int i = 0; i < numHapticDevices; i++)
-		//{
-		//	tool[i]->forcesBall();
-		//}
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			//****************************************************************************MAGIC
@@ -577,12 +571,12 @@ void updateHaptics(void)
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
 
-			cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
+			cVector3d workspaceVector(0,0, position.z() - workspaceCentre.z());
 			updateToolPos = workspaceVector;
 
 			if (workspaceVector.length() > 0.035)
 			{
-				cVector3d offset = 0.0009 * workspaceVector;
+				cVector3d offset = 0.0003 * workspaceVector;
 				//workspaceCentre += offset;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				cameraPos += offset;
@@ -620,11 +614,10 @@ void updateHaptics(void)
 			//cVector3d force(0, 0, 0);
 			//cVector3d torque(0, 0, 0);
 			//double gripperForce = 0.0;
-			tool[i]->m_tool->computeInteractionForces();
-			//tool[i]->m_tool->setDeviceLocalForce(tool[i]->forcesBall() + tool[i]->m_tool->getDeviceLocalForce()); 
+			//tool[i]->m_tool->computeInteractionForces();
+			//tool[i]->m_tool->setDeviceLocalForce(calcNetForces(tool[i]->m_tool->getDeviceLocalForce()));
+			tool[i]->moveBall();
 			debugVector = tool[i]->m_tool->getDeviceLocalForce();
-
-			springs[i]->setLine();
 			//this gets the forces acting on the device
 			//cout << tool[i]->getDeviceLocalForce() << endl;
 			//****************************************************************************MAGIC
@@ -639,12 +632,14 @@ void updateHaptics(void)
 			// signal frequency counter
 			//freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
-			tool[i]->m_tool->applyToDevice();
+			tool[i]->m_tool->applyToDevice();	
+			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
 
+		person->moveBall();
 	}
-    // exit haptics thread
-    simulationFinished = true;
+	// exit haptics thread
+	simulationFinished = true;
 
 }
 

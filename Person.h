@@ -1,14 +1,15 @@
 #pragma once
 #include "chai3d.h"
-class MyBall
+class Person
 {
 public:
-	MyBall(chai3d::cWorld* world)
+	Person(double radius)
 	{
-		m_tool = new chai3d::cToolCursor(world);
-		pos_p = m_tool->getLocalPos();
+		m_sphere = new chai3d::cShapeSphere(radius);
+		m_sphere->m_material->setGreen();
+		pos_p = m_sphere->getLocalPos();
 	};
-	virtual ~MyBall();
+	virtual ~Person();
 
 	//variables 
 	double mass_p = 0.05;				//kg
@@ -19,11 +20,10 @@ public:
 	double b_contact = 100;
 	bool hasForce = true;
 
-	chai3d::cToolCursor* m_tool;
-	//chai3d::cShapeSphere* m_sphere;
+	chai3d::cShapeSphere* m_sphere;
 
 	chai3d::cVector3d pos_p, vel_p = chai3d::cVector3d(0.0, 0.0, 0.0), acc_p = chai3d::cVector3d(0.0, 0.0, 0.0);
-	chai3d::cVector3d force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0), force_p_gravity, force_p_damping, force_p_spring_damping, force_p_device;
+	chai3d::cVector3d force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0), force_p_gravity, force_p_damping, force_p_spring_damping, force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
 
 	//function
 	void moveBall();
