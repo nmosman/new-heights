@@ -35,6 +35,8 @@ void Person::integrate()
 void Person::resetPosAndForces()
 {
 	pos_p = initPos;
+	m_sphere->setLocalPos(pos_p);
+	//this->moveBall();
 }
 void Person::moveBall()
 {

@@ -63,6 +63,7 @@ void MyBall::setBallPos(chai3d::cVector3d a_pos)
 void MyBall::resetBallPosAndForces()
 {
 	this->m_tool->setLocalPos(this->initPos);
+	//this->moveBall();
 }
 void MyBall::getForceDevice()
 {

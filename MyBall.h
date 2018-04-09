@@ -9,6 +9,17 @@ public:
 		pos_p = m_tool->getLocalPos();
 		initPos = pos_p;
 	};
+
+
+	MyBall(chai3d::cWorld* world, chai3d::cVector3d pos)
+	{
+		m_tool = new chai3d::cToolCursor(world);
+		//m_tool->setLocalPos(pos);
+		initPos = pos;
+	};
+
+
+
 	virtual ~MyBall();
 
 	//variables 
