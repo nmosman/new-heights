@@ -69,6 +69,11 @@ cLabel* labelRates;
 // a label to display debug info
 cLabel* labelDebugInfo;
 
+// Lift Force for shifting workspace up
+cVector3d lift;
+
+// Climber's local position
+cVector3d climberPos;
 
 // local position vector of the devices
 cVector3d localDevicePos1;
@@ -92,6 +97,10 @@ bool simulationFinished = false;
 // a state variable for whether debugging mode is enabled
 bool debugMode = false;
 
+
+// reset game state
+bool resetGame = false;
+
 // Mesh texture for the "monkey"
 cMesh* mesh;
 // whether the player has at least one hold on the cliff
@@ -102,6 +111,14 @@ bool startState = true;
 
 // ready state for climbing
 bool goodToClimb = false;
+
+
+// buttons from haptic device
+
+bool buttonCentre = false;
+bool buttonLeft = false;
+bool buttonTop = false;
+bool buttonRight = false;
 
 // offset of the workspace
 cVector3d offset;
@@ -182,14 +199,18 @@ void close(void);
 cVector3d updateToolPos;
 cVector3d lookAtPos(0.0, 0.0, 0.0);
 cVector3d lookAtPos_1(0.0, 0.0, 0.0);
-
 cVector3d lookAtPos_2(0.0, 0.0, 0.05);
-
-
 cVector3d cameraPos(0.1, 0.0, 0.0);
 
 // global workspace centre position vector
 cVector3d workspaceCentre(0.0, 0.0, 0.0);
+
+
+// initial game parameters
+cVector3d initClimberPos(0.045, 0.0, 0.03);
+cVector3d initCameraPos(0.1, 0.0, 0.0);
+cVector3d initLookAtPos(0.0, 0.0, 0.0);
+
 
 //==============================================================================
 /*
@@ -206,15 +227,16 @@ int main(int argc, char* argv[])
 	//--------------------------------------------------------------------------
 
 	cout << endl;
-	cout << "-----------------------------------" << endl;
-	cout << "CHAI3D" << endl;
-	cout << "-----------------------------------" << endl << endl << endl;
+	cout << "-------------------------------------------------------------" << endl;
+	cout << "New Heights, The Rock Climbing Simulator (Powered by CHAI3D) " << endl;
+	cout << "-------------------------------------------------------------" << endl << endl << endl;
 	cout << "Keyboard Options:" << endl << endl;
 	cout << "[f] - Enable/Disable full screen mode" << endl;
 	cout << "[m] - Enable/Disable vertical mirroring" << endl;
 	cout << "[c] - Toggle Camera View" << endl;
 	cout << "[d] - Debugging Mode for the Devs" << endl;
 	cout << "[r] - Ready up to start climbing!" << endl;
+	cout << "[g] - Play a[g]ain!" << endl;
 	cout << "[q] - Exit application" << endl;
 	cout << endl << endl;
 
@@ -348,17 +370,10 @@ int main(int argc, char* argv[])
 	//world->addChild(cursor);
 
 	//****************************************************************************************************************INITIALIZE STUFF
-	//add monkey Fantasy yatch.obj
+
 	monkey = new cMultiMesh();
-	//monkey->loadFromFile("monkey.obj");
 	monkey->loadFromFile("wall_v10.obj");
-
-
-
-
-	 mesh = monkey->getMesh(0);
-
-
+	mesh = monkey->getMesh(0);
 	mesh->m_material = MyMaterial::create();
 
 	
@@ -380,8 +395,8 @@ int main(int argc, char* argv[])
 
 	monkey->createAABBCollisionDetector(0.001);
 	world->addChild(monkey);
-
 	monkey->setLocalPos(0.0, -0.015, 0.0);
+
 	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
 	//--------------------------------------------------------------------------
@@ -395,8 +410,8 @@ int main(int argc, char* argv[])
 	//person = new cShapeSphere(0.001);
 	//person = new MyBall(world);
 	//person->setBallPos(cVector3d(0.01, 0, 0));
-	person = new Person(0.001);
-	person->m_sphere->setLocalPos(cVector3d(0.01, 0, 0));
+	person = new Person(0.001, initClimberPos);
+	
 	world->addChild(person->m_sphere);
 
 	for (int i = 0; i < numHapticDevices; i++)
@@ -427,8 +442,6 @@ int main(int argc, char* argv[])
 		// if the device has a gripper, enable the gripper to simulate a user switch
 		hapticDevice[i]->setEnableGripperUserSwitch(true);
 	}
-
-
 
 
 
@@ -591,6 +604,14 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	{
 		goodToClimb = true;
 	}
+
+	// option - toggle ready up state
+	else if (a_key == GLFW_KEY_G)
+	{
+		if (resetGame == false)
+			resetGame = true;
+
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -643,6 +664,11 @@ void updateGraphics(void)
 		debugInfo += "\nDevicePos1: " + localDevicePos1.str();
 		debugInfo += "\nDevicePos2: " + localDevicePos2.str();
 		debugInfo += "\nCameraPos: " + cameraPos.str();
+		debugInfo += "\nClimberPos: " + climberPos.str();
+		debugInfo += "\nButtonCentre: " + cStr(buttonCentre);
+		debugInfo += "\nButtonLeft: " + cStr(buttonLeft);
+		debugInfo += "\nButtonTop: " + cStr(buttonTop);
+		debugInfo += "\nButtonRight: " + cStr(buttonRight);
 		// update haptic and graphic rate data
 	}
 
@@ -682,7 +708,7 @@ void updateHaptics(void)
 	// simulation in now running
 	simulationRunning = true;
 	simulationFinished = false;
-	cVector3d lift;
+
 	// main haptic simulation loop	
 	cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
 
@@ -694,6 +720,9 @@ void updateHaptics(void)
 		{
 			springs[i]->getSpringForce();
 		}
+		
+		climberPos = person->pos_p;
+
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			//****************************************************************************MAGIC
@@ -736,7 +765,7 @@ void updateHaptics(void)
 			if ((goodToClimb == true) && (isHolding == false))
 			{
 				workspaceVectorInZ = cVector3d(0.0, 0.0, 0.1);
-				offset = -0.0003 * workspaceVectorInZ;
+				offset = -0.0008 * workspaceVectorInZ;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				//tool[i]->m_tool->setLocalPos(person->pos_p);
 				cameraPos += offset/2.0;
@@ -777,9 +806,11 @@ void updateHaptics(void)
 			hapticDevice[i]->getRotation(rotation);
 
 			// read user-switch status (button 0)
-			bool button = false;
-			hapticDevice[i]->getUserSwitch(0, button);
-
+		
+			hapticDevice[i]->getUserSwitch(0, buttonCentre);
+			hapticDevice[i]->getUserSwitch(1, buttonLeft);
+			hapticDevice[i]->getUserSwitch(2, buttonTop);
+			hapticDevice[i]->getUserSwitch(3, buttonRight);
 
 			/////////////////////////////////////////////////////////////////////
 			// UPDATE 3D CURSOR MODEL
@@ -826,8 +857,24 @@ void updateHaptics(void)
 			tool[i]->m_tool->applyToDevice();
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
+
+	
 		person->force_p_device = lift * 0.1;
 		person->moveBall();
+		if (resetGame == true)
+		{
+			resetGame = false;
+			for (int i = 0; i < numHapticDevices; i++)
+			{
+				tool[i]->resetBallPosAndForces();
+
+			}
+			person->resetPosAndForces();
+
+			//reset camera angles
+			cameraPos = initCameraPos;
+			lookAtPos = initLookAtPos;
+		}
 	}
 	// exit haptics thread
 	simulationFinished = true;

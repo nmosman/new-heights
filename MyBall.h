@@ -7,6 +7,7 @@ public:
 	{
 		m_tool = new chai3d::cToolCursor(world);
 		pos_p = m_tool->getLocalPos();
+		initPos = pos_p;
 	};
 	virtual ~MyBall();
 
@@ -22,17 +23,20 @@ public:
 	chai3d::cToolCursor* m_tool;
 	//chai3d::cShapeSphere* m_sphere;
 
+	chai3d::cVector3d initPos;
 	chai3d::cVector3d pos_p, vel_p = chai3d::cVector3d(0.0, 0.0, 0.0), acc_p = chai3d::cVector3d(0.0, 0.0, 0.0);
 	chai3d::cVector3d force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0), force_p_gravity, force_p_damping, force_p_spring_damping, force_p_device;
 
 	//function
 	void moveBall();
 	void setBallPos(chai3d::cVector3d a_pos);
+	void resetBallPosAndForces();
 private:
 	void getForceDevice();
 	void getForceGravity();
 	void getForceDamping();
 	void getSpringDamping();
+	
 	chai3d::cVector3d calcForceNet();
 	void integrate();
 };

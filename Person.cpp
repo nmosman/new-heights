@@ -32,7 +32,10 @@ void Person::integrate()
 }
 
 
-
+void Person::resetPosAndForces()
+{
+	pos_p = initPos;
+}
 void Person::moveBall()
 {
 	force_p_damping = chai3d::cVector3d(0.0, 0.0, 0.0);

@@ -8,7 +8,18 @@ public:
 		m_sphere = new chai3d::cShapeSphere(radius);
 		m_sphere->m_material->setGreen();
 		pos_p = m_sphere->getLocalPos();
+		
 	};
+
+	Person(double radius, chai3d::cVector3d pos)
+	{
+		m_sphere = new chai3d::cShapeSphere(radius);
+		m_sphere->m_material->setGreen();
+		m_sphere->setLocalPos(pos);
+		initPos = pos;
+
+	};
+
 	virtual ~Person();
 
 	//variables 
@@ -24,9 +35,11 @@ public:
 
 	chai3d::cVector3d pos_p, vel_p = chai3d::cVector3d(0.0, 0.0, 0.0), acc_p = chai3d::cVector3d(0.0, 0.0, 0.0);
 	chai3d::cVector3d force_p_spring = chai3d::cVector3d(0.0, 0.0, 0.0), force_p_gravity, force_p_damping, force_p_spring_damping, force_p_device = chai3d::cVector3d(0.0, 0.0, 0.0);
-
+	chai3d::cVector3d initPos;
 	//function
 	void moveBall();
+
+	void resetPosAndForces();
 	void setBallPos(chai3d::cVector3d a_pos);
 private:
 	void getForceDevice();
