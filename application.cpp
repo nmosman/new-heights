@@ -120,6 +120,9 @@ bool buttonLeft = false;
 bool buttonTop = false;
 bool buttonRight = false;
 
+
+double topCliff = 0.53;
+
 // offset of the workspace
 cVector3d offset;
 
@@ -200,14 +203,14 @@ cVector3d updateToolPos;
 cVector3d lookAtPos(0.0, 0.0, 0.0);
 cVector3d lookAtPos_1(0.0, 0.0, 0.0);
 cVector3d lookAtPos_2(0.0, 0.0, 0.05);
-cVector3d cameraPos(0.1, 0.0, 0.0);
+cVector3d cameraPos(0.075, 0.0, 0.0);
 
 // global workspace centre position vector
-cVector3d workspaceCentre(0.0, 0.0, 0.0);
+cVector3d workspaceCentre(0.0, 0.0, 0.01);
 
 
 // initial game parameters
-cVector3d initClimberPos(0.045, 0.0, 0.03);
+cVector3d initClimberPos(0.1, 0.0, 0.05);
 cVector3d initCameraPos(0.1, 0.0, 0.0);
 cVector3d initLookAtPos(0.0, 0.0, 0.0);
 
@@ -331,7 +334,7 @@ int main(int argc, char* argv[])
 	world->addChild(camera);
 
 	// position and orient the camera
-	camera->set(cVector3d(0.05, 0.0, 0.0),    // camera position (eye)
+	camera->set(initCameraPos,    // camera position (eye)
 		cVector3d(0.0, 0.0, 0.0),    // look at position (target)
 		cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 
@@ -388,7 +391,7 @@ int main(int argc, char* argv[])
 	mesh->m_texture = albedoMap;
     mesh->setUseTexture(true);
 
-	monkey->scale(0.005);
+	monkey->scale(0.01);
 	monkey->setStiffness(2000);
 	monkey->setFriction(1, 0.5);
 
@@ -509,6 +512,12 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
+/*
+chai3d::cVector3d getFallingCameraPos(chai3d::cVector3d cameraPos, )
+{
+
+}
+*/
 //------------------------------------------------------------------------------
 
 void windowSizeCallback(GLFWwindow* a_window, int a_width, int a_height)
@@ -711,7 +720,7 @@ void updateHaptics(void)
 
 	// main haptic simulation loop	
 	cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
-
+	
 	lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
 	while (simulationRunning)
 	{
@@ -722,7 +731,8 @@ void updateHaptics(void)
 		}
 		
 		climberPos = person->pos_p;
-
+		workspaceVector = cVector3d(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
+		updateToolPos = workspaceVector;
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			//****************************************************************************MAGIC
@@ -736,9 +746,6 @@ void updateHaptics(void)
 			// read position 
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
-
-			 workspaceVector = cVector3d(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
-			updateToolPos = workspaceVector;
 
 			if (numHapticDevices == 2)
 			{
@@ -768,35 +775,43 @@ void updateHaptics(void)
 				offset = -0.0008 * workspaceVectorInZ;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				//tool[i]->m_tool->setLocalPos(person->pos_p);
-				cameraPos += offset/2.0;
-				lookAtPos += offset/2.0;
-				lookAtPos_1 += offset/2.0;
-				lookAtPos_2 += offset/2.0;
+				person->pos_p += offset / numHapticDevices;
+				cameraPos += offset / numHapticDevices;
+				lookAtPos += offset / numHapticDevices;
+				lookAtPos_1 += offset / numHapticDevices;
+				lookAtPos_2 += offset / numHapticDevices;
+				workspaceCentre += offset / numHapticDevices;
 				camera->set(cameraPos,    // camera position (eye)
 					lookAtPos,    // look at position (target)
 					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 				if (i == 0)
 				{
-					localDevicePos1 = tool[0]->m_tool->getLocalPos();
+					localDevicePos1 = tool[0]->m_tool->getGlobalPos();
 				}
 				else
 				{
 
-					localDevicePos2 = tool[1]->m_tool->getLocalPos();
+					localDevicePos2 = tool[1]->m_tool->getGlobalPos();
 				}
 			}
 			else
-			{
-				
+			{				
 				cVector3d offset = 0.0003 * workspaceVector;
 
 				//workspaceCentre += offset;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
-				cameraPos += offset / 2.0;
-				lookAtPos += offset / 2.0;
-				lookAtPos_1 += offset / 2.0;
-				lookAtPos_2 += offset / 2.0;
-				workspaceCentre += offset/2.0;
+				
+				//cameraPos += offset / 2.0;
+				//lookAtPos += offset / 2.0;
+				//lookAtPos_1 += offset / 2.0;
+				//lookAtPos_2 += offset / 2.0;
+				//workspaceCentre += offset/2.0;
+
+				cameraPos += offset / numHapticDevices;
+				lookAtPos += offset / numHapticDevices;
+				lookAtPos_1 += offset / numHapticDevices;
+				lookAtPos_2 += offset / numHapticDevices;
+				workspaceCentre += offset / numHapticDevices;
 				camera->set(cameraPos,    // camera position (eye)
 					lookAtPos,    // look at position (target)
 					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
@@ -861,6 +876,8 @@ void updateHaptics(void)
 	
 		person->force_p_device = lift * 0.1;
 		person->moveBall();
+
+		//reset seems to not work properly...
 		if (resetGame == true)
 		{
 			resetGame = false;
