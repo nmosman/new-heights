@@ -17,6 +17,7 @@ public:
 		m_sphere->m_material->setGreen();
 		m_sphere->setLocalPos(pos);
 		initPos = pos;
+		pos_p = pos;
 
 	};
 
