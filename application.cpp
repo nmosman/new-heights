@@ -95,11 +95,15 @@ bool simulationRunning = false;
 bool simulationFinished = false;
 
 // a state variable for whether debugging mode is enabled
-bool debugMode = false;
+bool debugMode = true;
 
 
 // reset game state
 bool resetGame = false;
+
+
+// win state of the user 
+bool winState = false;
 
 // Mesh texture for the "monkey"
 cMesh* mesh;
@@ -198,21 +202,21 @@ void updateHaptics(void);
 // this function closes the application
 void close(void);
 
+void reset_Game();
 // global vector for updating tool position
 cVector3d updateToolPos;
 cVector3d lookAtPos(0.0, 0.0, 0.0);
 cVector3d lookAtPos_1(0.0, 0.0, 0.0);
 cVector3d lookAtPos_2(0.0, 0.0, 0.05);
 cVector3d cameraPos(0.075, 0.0, 0.0);
-
 // global workspace centre position vector
 cVector3d workspaceCentre(0.0, 0.0, 0.01);
 
 
 // initial game parameters
-cVector3d initClimberPos(0.1, 0.0, 0.05);
-cVector3d initCameraPos(0.1, 0.0, 0.0);
-cVector3d initLookAtPos(0.0, 0.0, 0.0);
+cVector3d initClimberPos(0.2, 0.0, 0.01);
+cVector3d initCameraPos(0.25, 0.0, 0.05);
+cVector3d initLookAtPos(0.2, 0.0, 0.05);
 
 
 //==============================================================================
@@ -415,7 +419,8 @@ int main(int argc, char* argv[])
 	//person->setBallPos(cVector3d(0.01, 0, 0));
 	person = new Person(0.001, initClimberPos);
 	
-	world->addChild(person->m_sphere);
+	//uncomment to add the mass visually
+	//world->addChild(person->m_sphere);
 
 	for (int i = 0; i < numHapticDevices; i++)
 	{
@@ -433,7 +438,7 @@ int main(int argc, char* argv[])
 
 		//****************************************************************************************************************CHANGES FOR CURSOR
 
-		tool[i] = new MyBall(world);
+		tool[i] = new MyBall(world, initClimberPos);
 		tool[i]->m_tool->setHapticDevice(hapticDevice[i]);
 		tool[i]->m_tool->setRadius(0.001);
 		tool[i]->m_tool->enableDynamicObjects(true);		//variant of god obj that is beter than standard. use it. ESPECIALLY FOR MOVING THINGS. THIS IS FOR MOVING THINGS
@@ -669,6 +674,7 @@ void updateGraphics(void)
 		debugInfo += "\nGood To Climb: " + cStr(goodToClimb);
 		debugInfo += "\nWorkSpaceinZ: " + workspaceVectorInZ.str();
 		debugInfo += "\nWorkSpaceVector: " + workspaceVector.str();
+		debugInfo += "\nWorkSpaceCentre: " + workspaceCentre.str();
 		debugInfo += "\noffset: " + offset.str();
 		debugInfo += "\nDevicePos1: " + localDevicePos1.str();
 		debugInfo += "\nDevicePos2: " + localDevicePos2.str();
@@ -678,6 +684,7 @@ void updateGraphics(void)
 		debugInfo += "\nButtonLeft: " + cStr(buttonLeft);
 		debugInfo += "\nButtonTop: " + cStr(buttonTop);
 		debugInfo += "\nButtonRight: " + cStr(buttonRight);
+		debugInfo += "\nWinState: " + cStr(buttonRight);
 		// update haptic and graphic rate data
 	}
 
@@ -722,8 +729,15 @@ void updateHaptics(void)
 	cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
 	
 	lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
+
+	//reset_Game();
+
 	while (simulationRunning)
 	{
+		if (climberPos.z() >= topCliff)
+		{
+			winState = true;
+		}
 		lift.zero();
 		for (int i = 0; i < numHapticDevices; i++)
 		{
@@ -880,22 +894,28 @@ void updateHaptics(void)
 		//reset seems to not work properly...
 		if (resetGame == true)
 		{
-			resetGame = false;
-			for (int i = 0; i < numHapticDevices; i++)
-			{
-				tool[i]->resetBallPosAndForces();
-
-			}
-			person->resetPosAndForces();
-
-			//reset camera angles
-			cameraPos = initCameraPos;
-			lookAtPos = initLookAtPos;
+			reset_Game();
 		}
 	}
 	// exit haptics thread
 	simulationFinished = true;
 
 }
+void reset_Game()
+{
+	resetGame = false;
 
+	// reset workspace centre
+	workspaceCentre = cVector3d(0.0, 0.0, 0.01) + initClimberPos;
+	for (int i = 0; i < numHapticDevices; i++)
+	{
+		tool[i]->resetBallPosAndForces();
+
+	}
+	person->resetPosAndForces();
+
+	//reset camera angles
+	cameraPos = initCameraPos;
+	lookAtPos = initLookAtPos;
+}
 //------------------------------------------------------------------------------
