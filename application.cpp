@@ -69,8 +69,19 @@ cLabel* labelRates;
 // a label to display debug info
 cLabel* labelDebugInfo;
 
+
+// local position vector of the devices
+cVector3d localDevicePos1;
+cVector3d localDevicePos2;
+
 // a small sphere (cursor) representing the haptic device 
 cShapeSphere* cursor;
+
+// workspace vector for z component
+cVector3d workspaceVectorInZ;
+
+// workspace vector 
+cVector3d workspaceVector;
 
 // flag to indicate if the haptic simulation currently running
 bool simulationRunning = false;
@@ -91,6 +102,9 @@ bool startState = true;
 
 // ready state for climbing
 bool goodToClimb = false;
+
+// offset of the workspace
+cVector3d offset;
 
 // a frequency counter to measure the simulation graphic rate
 cFrequencyCounter freqCounterGraphics;
@@ -337,7 +351,7 @@ int main(int argc, char* argv[])
 	//add monkey Fantasy yatch.obj
 	monkey = new cMultiMesh();
 	//monkey->loadFromFile("monkey.obj");
-	monkey->loadFromFile("wall3.obj");
+	monkey->loadFromFile("wall_v10.obj");
 
 
 
@@ -350,7 +364,7 @@ int main(int argc, char* argv[])
 	
 	// create a colour texture map for this mesh object
 	cTexture2dPtr albedoMap = cTexture2d::create();
-	albedoMap->loadFromFile("images/cliff3.jpg");
+	albedoMap->loadFromFile("images/cliff2.jpg");
 	albedoMap->setWrapModeS(GL_REPEAT);
 	albedoMap->setWrapModeT(GL_REPEAT);
 
@@ -623,7 +637,12 @@ void updateGraphics(void)
 		debugInfo += "isTouchingRock: " + cStr(isHolding);
 		debugInfo += "\nNet Body Force: " + debugVector.str();
 		debugInfo += "\nGood To Climb: " + cStr(goodToClimb);
-		    
+		debugInfo += "\nWorkSpaceinZ: " + workspaceVectorInZ.str();
+		debugInfo += "\nWorkSpaceVector: " + workspaceVector.str();
+		debugInfo += "\noffset: " + offset.str();
+		debugInfo += "\nDevicePos1: " + localDevicePos1.str();
+		debugInfo += "\nDevicePos2: " + localDevicePos2.str();
+		debugInfo += "\nCameraPos: " + cameraPos.str();
 		// update haptic and graphic rate data
 	}
 
@@ -665,9 +684,9 @@ void updateHaptics(void)
 	simulationFinished = false;
 	cVector3d lift;
 	// main haptic simulation loop	
-	//cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
+	cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
 
-	//lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
+	lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
 	while (simulationRunning)
 	{
 		lift.zero();
@@ -689,7 +708,7 @@ void updateHaptics(void)
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
 
-			cVector3d workspaceVector(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
+			 workspaceVector = cVector3d(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
 			updateToolPos = workspaceVector;
 
 			if (numHapticDevices == 2)
@@ -703,20 +722,7 @@ void updateHaptics(void)
 			
 
 			//if (workspaceVector.length() > 0.035)
-			{
-				cVector3d offset = 0.0003 * workspaceVector;
-				
-				//workspaceCentre += offset;
-				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
-				cameraPos += offset;
-				lookAtPos += offset;
-				lookAtPos_1 += offset;
-				lookAtPos_2 += offset;
-				workspaceCentre += offset;
-				camera->set(cameraPos,    // camera position (eye)
-					lookAtPos,    // look at position (target)
-					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
-			}
+		
 			//cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
 
 			//lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
@@ -727,20 +733,44 @@ void updateHaptics(void)
 
 
 			// not good news for climber, they start to descend fast as well as the workspace!
-			if (goodToClimb && isHolding == false)
+			if ((goodToClimb == true) && (isHolding == false))
 			{
-				cVector3d workspaceVectorInZ(0.0, 0.0, position.z() - workspaceCentre.z());
-				cVector3d offset = -0.002 * workspaceVectorInZ;
+				workspaceVectorInZ = cVector3d(0.0, 0.0, 0.1);
+				offset = -0.0003 * workspaceVectorInZ;
 				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
 				//tool[i]->m_tool->setLocalPos(person->pos_p);
-				cameraPos += offset;
-				lookAtPos += offset;
-				lookAtPos_1 += offset;
-				lookAtPos_2 += offset;
+				cameraPos += offset/2.0;
+				lookAtPos += offset/2.0;
+				lookAtPos_1 += offset/2.0;
+				lookAtPos_2 += offset/2.0;
 				camera->set(cameraPos,    // camera position (eye)
 					lookAtPos,    // look at position (target)
 					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+				if (i == 0)
+				{
+					localDevicePos1 = tool[0]->m_tool->getLocalPos();
+				}
+				else
+				{
 
+					localDevicePos2 = tool[1]->m_tool->getLocalPos();
+				}
+			}
+			else
+			{
+				
+				cVector3d offset = 0.0003 * workspaceVector;
+
+				//workspaceCentre += offset;
+				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
+				cameraPos += offset / 2.0;
+				lookAtPos += offset / 2.0;
+				lookAtPos_1 += offset / 2.0;
+				lookAtPos_2 += offset / 2.0;
+				workspaceCentre += offset/2.0;
+				camera->set(cameraPos,    // camera position (eye)
+					lookAtPos,    // look at position (target)
+					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 			}
 			// read orientation 
 			cMatrix3d rotation;
