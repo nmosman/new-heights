@@ -12,7 +12,7 @@ public:
 	virtual ~Person();
 
 	//variables 
-	double mass_p = 0.05;				//kg
+	double mass_p = 1;				//kg
 	double b_air = 1.0;					//Ns/m
 	double b_spring = 1.0;				//Ns/m
 	double deltaT = 0.001;

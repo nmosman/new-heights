@@ -89,7 +89,8 @@ bool isHolding = false;
 // start state of the player 
 bool startState = true;
 
-
+// ready state for climbing
+bool goodToClimb = false;
 
 // a frequency counter to measure the simulation graphic rate
 cFrequencyCounter freqCounterGraphics;
@@ -171,7 +172,7 @@ cVector3d lookAtPos_1(0.0, 0.0, 0.0);
 cVector3d lookAtPos_2(0.0, 0.0, 0.05);
 
 
-cVector3d cameraPos(0.05, 0.0, 0.0);
+cVector3d cameraPos(0.1, 0.0, 0.0);
 
 // global workspace centre position vector
 cVector3d workspaceCentre(0.0, 0.0, 0.0);
@@ -199,6 +200,7 @@ int main(int argc, char* argv[])
 	cout << "[m] - Enable/Disable vertical mirroring" << endl;
 	cout << "[c] - Toggle Camera View" << endl;
 	cout << "[d] - Debugging Mode for the Devs" << endl;
+	cout << "[r] - Ready up to start climbing!" << endl;
 	cout << "[q] - Exit application" << endl;
 	cout << endl << endl;
 
@@ -335,7 +337,7 @@ int main(int argc, char* argv[])
 	//add monkey Fantasy yatch.obj
 	monkey = new cMultiMesh();
 	//monkey->loadFromFile("monkey.obj");
-	monkey->loadFromFile("wall_v10.obj");
+	monkey->loadFromFile("wall3.obj");
 
 
 
@@ -570,6 +572,11 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 		debugMode = !debugMode;
 	}
 
+	// option - toggle ready up state
+	else if (a_key == GLFW_KEY_R)
+	{
+		goodToClimb = true;
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -615,7 +622,7 @@ void updateGraphics(void)
 	{
 		debugInfo += "isTouchingRock: " + cStr(isHolding);
 		debugInfo += "\nNet Body Force: " + debugVector.str();
-
+		debugInfo += "\nGood To Climb: " + cStr(goodToClimb);
 		    
 		// update haptic and graphic rate data
 	}
@@ -657,7 +664,10 @@ void updateHaptics(void)
 	simulationRunning = true;
 	simulationFinished = false;
 	cVector3d lift;
-	// main haptic simulation loop
+	// main haptic simulation loop	
+	//cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
+
+	//lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
 	while (simulationRunning)
 	{
 		lift.zero();
@@ -679,11 +689,20 @@ void updateHaptics(void)
 			cVector3d position;
 			hapticDevice[i]->getPosition(position);
 
-			cVector3d workspaceVector(position.x() - workspaceCentre.x(), position.y() - workspaceCentre.y(), position.z() - workspaceCentre.z());
+			cVector3d workspaceVector(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
 			updateToolPos = workspaceVector;
 
-			isHolding = tool[i]->m_tool->m_hapticPoint->isInContact(mesh);
-			if (workspaceVector.length() > 0.035)
+			if (numHapticDevices == 2)
+			{
+				isHolding = tool[0]->m_tool->m_hapticPoint->isInContact(mesh) || tool[1]->m_tool->m_hapticPoint->isInContact(mesh);
+			}
+			else
+			{
+				isHolding = tool[i]->m_tool->m_hapticPoint->isInContact(mesh);
+			}
+			
+
+			//if (workspaceVector.length() > 0.035)
 			{
 				cVector3d offset = 0.0003 * workspaceVector;
 				
@@ -693,12 +712,36 @@ void updateHaptics(void)
 				lookAtPos += offset;
 				lookAtPos_1 += offset;
 				lookAtPos_2 += offset;
+				workspaceCentre += offset;
 				camera->set(cameraPos,    // camera position (eye)
 					lookAtPos,    // look at position (target)
 					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
 			}
+			//cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
+
+			//lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
+			//camera->set(cameraPos,    // camera position (eye)
+			//			lookAtPos,    // look at position (target)
+			//			cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+			//tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos());
 
 
+			// not good news for climber, they start to descend fast as well as the workspace!
+			if (goodToClimb && isHolding == false)
+			{
+				cVector3d workspaceVectorInZ(0.0, 0.0, position.z() - workspaceCentre.z());
+				cVector3d offset = -0.002 * workspaceVectorInZ;
+				tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos() + offset);
+				//tool[i]->m_tool->setLocalPos(person->pos_p);
+				cameraPos += offset;
+				lookAtPos += offset;
+				lookAtPos_1 += offset;
+				lookAtPos_2 += offset;
+				camera->set(cameraPos,    // camera position (eye)
+					lookAtPos,    // look at position (target)
+					cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
+
+			}
 			// read orientation 
 			cMatrix3d rotation;
 			hapticDevice[i]->getRotation(rotation);
@@ -744,13 +787,16 @@ void updateHaptics(void)
 			// send computed force, torque, and gripper force to haptic device
 			//hapticDevice->setForceAndTorqueAndGripperForce(force, torque, gripperForce);
 
+
+			// issues:
+			// device anchored in space - what should be happening is your arm things movement should not impact the body! 
 			// signal frequency counter
 			freqCounterHaptics.signal(1);
 			//****************************************************************************MAGIC
 			tool[i]->m_tool->applyToDevice();
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
-
+		person->force_p_device = lift * 0.1;
 		person->moveBall();
 	}
 	// exit haptics thread
