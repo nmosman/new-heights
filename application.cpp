@@ -110,7 +110,7 @@ bool simulationRunning = false;
 bool simulationFinished = false;
 
 // a state variable for whether debugging mode is enabled
-bool debugMode = true;
+bool debugMode = false;
 
 // a variable for tracking score
 int userScore = 0;
@@ -147,8 +147,8 @@ bool goodToClimb = false;
 cPrecisionClock timer;
 
 // Game Messages
-std::string loseMessage = "A loser is you!";
-std::string winMessage = "Good Job, you've burned x calories";
+std::string loseMessage = "";
+std::string winMessage = "Woah, you actually made it to the top?! Btw, how are your arms feeling? ";
 
 
 // buttons from haptic device
@@ -159,8 +159,10 @@ bool buttonTop = false;
 bool buttonRight = false;
 
 
+// default top and bottom cliff conditions
 double topCliff = 0.53;
-double botCliff = -0.12;
+double botCliff = -0.15;
+
 // offset of the workspace
 cVector3d offset;
 
@@ -189,10 +191,18 @@ int height = 0;
 // swap interval for the display context (vertical synchronization)
 int swapInterval = 1;
 
+// variable for managing scene
+int sceneType = 2;
+
 //****************************************************************************************************************VARIABLES
 //add 3d mesh file
-cMultiMesh * monkey;			//debug monkey for testing friction
-								//MyBall* person;
+cMultiMesh * monkey;								// we totally decided to call our cliff models monkeys. Why? Because why not! :)
+cMultiMesh * monkey2;								
+cMultiMesh * monkey3;
+
+cMesh * mesh2;
+cMesh * mesh3;
+
 Person* person;
 MySpring* springs[MAX_DEVICES];
 MyBall* tool[MAX_DEVICES];							// tool cursor for chai3d collision 
@@ -252,6 +262,92 @@ cVector3d initClimberPos(0.08, 0.0, 0.01);
 cVector3d initCameraPos(0.13, 0.0, 0.05);
 cVector3d initLookAtPos(0.08, 0.0, 0.05);
 
+cTexture2dPtr albedoMap;
+void sceneSwitch()
+{
+	switch (sceneType) 
+	{
+	case 1:
+		world->deleteAllChildren();
+		world->addChild(light);
+		world->addChild(light_2);
+		world->addChild(camera);
+		world->addChild(person->m_sphere);
+		for (int i = 0; i < numHapticDevices; i++)
+		{
+			world->addChild(tool[i]->m_tool);
+
+			world->addChild(springs[i]->line_s);
+		}
+	    
+
+		monkey2 = new cMultiMesh();
+		monkey2->loadFromFile("models/boulder_v4.obj");
+		mesh2 = monkey2->getMesh(0);
+		mesh2->m_material = MyMaterial::create();
+
+		// create a colour texture map for this mesh object
+		albedoMap = cTexture2d::create();
+		albedoMap->loadFromFile("images/cliff2.jpg");
+		albedoMap->setWrapModeS(GL_REPEAT);
+		albedoMap->setWrapModeT(GL_REPEAT);
+
+		// assign textures to the mesh
+		mesh2->m_texture = albedoMap;
+		mesh2->setUseTexture(true);
+		monkey2->scale(0.01);
+		monkey2->setStiffness(2000);
+		monkey2->setFriction(1, 0.5);
+
+		monkey2->createAABBCollisionDetector(0.001);
+		world->addChild(monkey2);
+		monkey2->setLocalPos(0.0, -0.015, 0.0);
+
+		break;
+	case 2:
+		world->deleteAllChildren();
+		world->addChild(light);
+		world->addChild(light_2);
+		world->addChild(camera);
+		world->addChild(person->m_sphere);
+		for (int i = 0; i < numHapticDevices; i++)
+		{
+			world->addChild(tool[i]->m_tool);
+
+			world->addChild(springs[i]->line_s);
+		}
+
+		
+		monkey = new cMultiMesh();
+		monkey->loadFromFile("models/wall_v10.obj");
+		mesh = monkey->getMesh(0);
+		mesh->m_material = MyMaterial::create();
+
+		// create a colour texture map for this mesh object
+		albedoMap = cTexture2d::create();
+		albedoMap->loadFromFile("images/cliff2.jpg");
+		albedoMap->setWrapModeS(GL_REPEAT);
+		albedoMap->setWrapModeT(GL_REPEAT);
+
+		// assign textures to the mesh
+		mesh->m_texture = albedoMap;
+		mesh->setUseTexture(true);
+		monkey->scale(0.01);
+		monkey->setStiffness(2000);
+		monkey->setFriction(1, 0.5);
+
+		monkey->createAABBCollisionDetector(0.001);
+		world->addChild(monkey);
+		monkey->setLocalPos(0.0, -0.015, 0.0);
+		break;
+	case 3:
+
+		break;
+	default:
+		break;
+
+	}
+}
 
 void resetPosition()
 {
@@ -303,6 +399,8 @@ int main(int argc, char* argv[])
 	cout << "[d] - Debugging Mode for the Devs" << endl;
 	cout << "[r] - Ready up to start climbing!" << endl;
 	cout << "[g] - Play a[g]ain!" << endl;
+	cout << "[1] - Switch to easier cliff" << endl;
+	cout << "[2] - Default/Medium but long level cliff" << endl;
 	cout << "[q] - Exit application" << endl;
 	cout << endl << endl;
 
@@ -441,7 +539,7 @@ int main(int argc, char* argv[])
 	//--------------------------------------------------------------------------
 
 	monkey = new cMultiMesh();
-	monkey->loadFromFile("wall_v10.obj");
+	monkey->loadFromFile("models/wall_v10.obj");
 	mesh = monkey->getMesh(0);
 	mesh->m_material = MyMaterial::create();
 
