@@ -19,7 +19,7 @@ public:
 	void setRestLength(double x);
 	void setSpringDamping();
 	void setSpringDampingCoefficient(double x);
-
+	void limitMovement();
 private:
 	//variables
 	double k_spring = 200;				//N/ m

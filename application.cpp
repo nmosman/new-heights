@@ -36,7 +36,15 @@ bool fullscreen = false;
 // mirrored display
 bool mirroredDisplay = false;
 
+
+// live counter
+int climberLives;
 const int MAX_DEVICES = 2;
+
+
+const int MAX_NUM_OF_LIVES = 3;
+
+
 
 //------------------------------------------------------------------------------
 // DECLARED VARIABLES
@@ -69,6 +77,13 @@ cLabel* labelRates;
 // a label to display debug info
 cLabel* labelDebugInfo;
 
+// a label to display game result
+cLabel* labelGameResult;
+
+// a label to display game status
+cLabel* labelGameStatus;
+
+
 // Lift Force for shifting workspace up
 cVector3d lift;
 
@@ -97,11 +112,14 @@ bool simulationFinished = false;
 // a state variable for whether debugging mode is enabled
 bool debugMode = true;
 
+// a variable for tracking score
+int userScore = 0;
 
 // reset game state
 bool resetGame = false;
 
-
+// frame counter for updating score
+int hapticCounter = 0;
 // win state of the user 
 bool winState = false;
 
@@ -110,11 +128,27 @@ cMesh* mesh;
 // whether the player has at least one hold on the cliff
 bool isHolding = false;
 
+// lose state of the player
+bool loseState = false;
+
+// score accumulator based on time
+int scoreAccum = 0;
+
+// if the game has ended (user lost all lives)
+bool gameOver = false;
+
 // start state of the player 
 bool startState = true;
 
 // ready state for climbing
 bool goodToClimb = false;
+
+// timer object
+cPrecisionClock timer;
+
+// Game Messages
+std::string loseMessage = "A loser is you!";
+std::string winMessage = "Good Job, you've burned x calories";
 
 
 // buttons from haptic device
@@ -126,7 +160,7 @@ bool buttonRight = false;
 
 
 double topCliff = 0.53;
-
+double botCliff = -0.12;
 // offset of the workspace
 cVector3d offset;
 
@@ -214,9 +248,34 @@ cVector3d workspaceCentre(0.0, 0.0, 0.01);
 
 
 // initial game parameters
-cVector3d initClimberPos(0.2, 0.0, 0.01);
-cVector3d initCameraPos(0.25, 0.0, 0.05);
-cVector3d initLookAtPos(0.2, 0.0, 0.05);
+cVector3d initClimberPos(0.08, 0.0, 0.01);
+cVector3d initCameraPos(0.13, 0.0, 0.05);
+cVector3d initLookAtPos(0.08, 0.0, 0.05);
+
+
+void resetPosition()
+{
+	// reset the game states
+	loseState = false;
+	winState = false;
+
+	// reset workspace centre
+	workspaceCentre = cVector3d(0.0, 0.0, 0.01) + initClimberPos;
+	for (int i = 0; i < numHapticDevices; i++)
+	{
+		tool[i]->resetBallPosAndForces();
+
+	}
+	person->resetPosAndForces();
+
+	//reset camera angles
+	cameraPos = initCameraPos;
+	lookAtPos = initLookAtPos;
+
+	// reset the timer
+	timer.reset();
+	timer.start();
+}
 
 
 //==============================================================================
@@ -377,6 +436,9 @@ int main(int argc, char* argv[])
 	//world->addChild(cursor);
 
 	//****************************************************************************************************************INITIALIZE STUFF
+	//--------------------------------------------------------------------------
+	// Game Texture Setup 
+	//--------------------------------------------------------------------------
 
 	monkey = new cMultiMesh();
 	monkey->loadFromFile("wall_v10.obj");
@@ -405,6 +467,12 @@ int main(int argc, char* argv[])
 	monkey->setLocalPos(0.0, -0.015, 0.0);
 
 	//--------------------------------------------------------------------------
+	// Game Logic Setup
+	//--------------------------------------------------------------------------
+
+	climberLives = MAX_NUM_OF_LIVES;
+
+	//--------------------------------------------------------------------------
 	// HAPTIC DEVICE
 	//--------------------------------------------------------------------------
 
@@ -420,7 +488,7 @@ int main(int argc, char* argv[])
 	person = new Person(0.001, initClimberPos);
 	
 	//uncomment to add the mass visually
-	//world->addChild(person->m_sphere);
+	world->addChild(person->m_sphere);
 
 	for (int i = 0; i < numHapticDevices; i++)
 	{
@@ -460,11 +528,23 @@ int main(int argc, char* argv[])
 	// create a font
 	cFontPtr font = NEW_CFONTCALIBRI20();
 
+
 	// create a label to display the haptic and graphic rates of the simulation
 	labelRates = new cLabel(font);
 	labelRates->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelRates);
 
+	// create a label to display the results of the player either winning or losing
+	labelGameResult = new cLabel(font);
+	labelGameResult->m_fontColor.setWhite();
+	camera->m_frontLayer->addChild(labelGameResult);
+
+	// a label to display game status
+	labelGameStatus = new cLabel(font);
+	labelGameStatus->m_fontColor.setWhite();
+	camera->m_frontLayer->addChild(labelGameStatus);
+
+	// label for displaying debug variables
 	labelDebugInfo = new cLabel(font);
 	labelDebugInfo->m_fontColor.setWhite();
 	camera->m_frontLayer->addChild(labelDebugInfo);
@@ -616,7 +696,7 @@ void keyCallback(GLFWwindow* a_window, int a_key, int a_scancode, int a_action, 
 	// option - toggle ready up state
 	else if (a_key == GLFW_KEY_R)
 	{
-		goodToClimb = true;
+		goodToClimb = !goodToClimb;
 	}
 
 	// option - toggle ready up state
@@ -651,7 +731,13 @@ void close(void)
 }
 
 //------------------------------------------------------------------------------
-
+double calculateUserScore(double max_score, double acc)
+{
+	if(max_score - (acc) > 0)
+		return max_score - (acc);
+	return 0;
+}
+//-------------------------------------------------------------------------------
 void updateGraphics(void)
 {
 	/////////////////////////////////////////////////////////////////////
@@ -684,16 +770,62 @@ void updateGraphics(void)
 		debugInfo += "\nButtonLeft: " + cStr(buttonLeft);
 		debugInfo += "\nButtonTop: " + cStr(buttonTop);
 		debugInfo += "\nButtonRight: " + cStr(buttonRight);
-		debugInfo += "\nWinState: " + cStr(buttonRight);
-		// update haptic and graphic rate data
+		debugInfo += "\nWinState: " + cStr(winState);
+		debugInfo += "\nLoseState: " + cStr(loseState);
+		debugInfo += "\nGameOver: " + cStr(gameOver);
+		// update haptic and graphisc rate data
 	}
 
+	std::string gameResult;
+	std::string gameStatus;
 
+	if (loseState)
+	{
+		gameResult = "You died!";
+		gameResult = loseMessage;
+		labelGameResult->setText(gameResult);
+		cSleepMs(1000);
+		climberLives -= 1;
+		if (climberLives == 0)
+		{
+			gameOver = true;
+		}
 
+		resetPosition();
+	}
+		
+	else if (winState)
+	{
+		gameResult = winMessage;
+		labelGameResult->setText(gameResult);
+		cSleepMs(1000);
+	}
+	
+	else if (gameOver)
+	{
+		gameResult = loseMessage;
+		labelGameResult->setText(gameResult);
+		cSleepMs(3000);
+		climberLives = MAX_NUM_OF_LIVES;
+		gameOver = false;
+	}
+	else
+	{
+		gameResult = "";
+	}
+	
+
+	gameStatus = "Lives: " + cStr(climberLives) + " Score: " + cStr(userScore);
+
+	labelGameResult->setText(gameResult);
+	labelGameStatus->setText(gameStatus);
+
+	labelGameStatus->setLocalPos((int)(width - width/4.0),(int) height - height/10.0);
+	labelGameResult->setLocalPos((int)(width - width / 2.0), (int) height - height/2.0);
 
 	labelDebugInfo->setText(debugInfo);
 	// update position of label
-	labelRates->setLocalPos((int)(0.5 * (width - labelRates->getWidth())), 15);
+	
 
 	labelDebugInfo->setLocalPos((int)(0, 25));
 
@@ -721,6 +853,8 @@ void updateGraphics(void)
 
 void updateHaptics(void)
 {
+
+
 	// simulation in now running
 	simulationRunning = true;
 	simulationFinished = false;
@@ -730,25 +864,48 @@ void updateHaptics(void)
 	
 	lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
 
-	//reset_Game();
+	reset_Game();
 
 	while (simulationRunning)
 	{
-		if (climberPos.z() >= topCliff)
-		{
-			winState = true;
-		}
+		double t = timer.getCurrentTimeSeconds();
 		lift.zero();
+		
+		// silly way of updating score based on updates every second
+		if (hapticCounter == 1000)
+		{
+			// update score
+			scoreAccum += 10*t;
+			hapticCounter = 0;
+		}
+
+		
 		for (int i = 0; i < numHapticDevices; i++)
 		{
 			springs[i]->getSpringForce();
 		}
 		
 		climberPos = person->pos_p;
+		
+		if (climberPos.z() >= topCliff)
+		{
+			winState = true;
+			loseState = false;
+		}
+
+		else if (climberPos.z() <= botCliff)
+		{
+			loseState = true;
+			winState = false;
+		}
+
+		
 		workspaceVector = cVector3d(person->pos_p.x() - workspaceCentre.x(), person->pos_p.y() - workspaceCentre.y(), person->pos_p.z() - workspaceCentre.z());
 		updateToolPos = workspaceVector;
 		for (int i = 0; i < numHapticDevices; i++)
 		{
+
+			
 			//****************************************************************************MAGIC
 			//need to do this when obj with parent child relationship
 			world->computeGlobalPositions();
@@ -770,16 +927,6 @@ void updateHaptics(void)
 				isHolding = tool[i]->m_tool->m_hapticPoint->isInContact(mesh);
 			}
 			
-
-			//if (workspaceVector.length() > 0.035)
-		
-			//cameraPos = cVector3d(cameraPos.x(), person->pos_p.y(), person->pos_p.z());
-
-			//lookAtPos = cVector3d(lookAtPos.x(), person->pos_p.y(), person->pos_p.z());
-			//camera->set(cameraPos,    // camera position (eye)
-			//			lookAtPos,    // look at position (target)
-			//			cVector3d(0.0, 0.0, 1.0));   // direction of the (up) vector
-			//tool[i]->m_tool->setLocalPos(tool[i]->m_tool->getLocalPos());
 
 
 			// not good news for climber, they start to descend fast as well as the workspace!
@@ -887,15 +1034,21 @@ void updateHaptics(void)
 			springs[i]->setLine();
 		}	//****************************************************************************MAGIC
 
-	
+		userScore = calculateUserScore(100000, scoreAccum);
 		person->force_p_device = lift * 0.1;
 		person->moveBall();
+		
+	/*	for (int i = 0; i < numHapticDevices; i++)
+		{
+			springs[i]->limitMovement();
+		}*/
 
 		//reset seems to not work properly...
 		if (resetGame == true)
 		{
 			reset_Game();
 		}
+		hapticCounter++;
 	}
 	// exit haptics thread
 	simulationFinished = true;
@@ -903,7 +1056,14 @@ void updateHaptics(void)
 }
 void reset_Game()
 {
+	userScore = 10000;
 	resetGame = false;
+	climberLives = MAX_NUM_OF_LIVES;
+
+	scoreAccum = 0;
+	// reset the game states
+	loseState = false;
+	winState = false;
 
 	// reset workspace centre
 	workspaceCentre = cVector3d(0.0, 0.0, 0.01) + initClimberPos;
@@ -917,5 +1077,10 @@ void reset_Game()
 	//reset camera angles
 	cameraPos = initCameraPos;
 	lookAtPos = initLookAtPos;
+
+	// reset the timer
+	timer.reset();
+	timer.start();
 }
+
 //------------------------------------------------------------------------------

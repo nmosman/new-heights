@@ -88,3 +88,12 @@ void MySpring::setSpringDampingCoefficient(double x)
 {
 	b_spring = x;
 }
+void MySpring::limitMovement()
+{
+	chai3d::cVector3d distance = ball_b->pos_p - ball_a->m_tool->m_hapticPoint->getGlobalPosProxy();
+	if (distance.length() > n_length)
+	{
+		distance = chai3d::cNormalize(distance)*n_length;
+		ball_b->pos_p = distance + ball_a->m_tool->m_hapticPoint->getGlobalPosProxy();
+	}
+}
